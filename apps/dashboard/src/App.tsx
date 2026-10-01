@@ -189,7 +189,7 @@ export function App() {
   return (
     <>
       <header className="ledger-header">
-        <h1>AgentLedger</h1>
+        <h1>Agent Gate</h1>
         <nav aria-label="Sections">
           {TABS.map((item) => (
             <button
