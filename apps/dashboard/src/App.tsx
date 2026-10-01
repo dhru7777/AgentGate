@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { defaultRules, SERVICES } from "./data";
 import type { AgentView, Range, Rule, ServiceView, Tab } from "./types";
 import { ServicesView } from "./views/ServicesView";
+import { WalletView } from "./views/WalletView";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "services", label: "Services" },
@@ -85,10 +86,17 @@ export function App() {
           onAction={ruleAction}
         />
       )}
-      {tab !== "services" && (
+      {tab === "wallet" && <WalletView />}
+      {tab === "identity" && (
         <main className="ledger-page">
-          <h1>{TABS.find((item) => item.id === tab)?.label}</h1>
-          <p className="obs-meta">Coming next.</p>
+          <h1>Identity</h1>
+          <p className="obs-meta">ERC-8004 records come next.</p>
+        </main>
+      )}
+      {tab === "invoices" && (
+        <main className="ledger-page">
+          <h1>Invoices</h1>
+          <p className="obs-meta">Paid requests will be listed here.</p>
         </main>
       )}
     </>
