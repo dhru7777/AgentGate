@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { defaultRules, SERVICES } from "./data";
-import type { AgentView, Range, Rule, ServiceView, Tab } from "./types";
+import { unlockOwnerAccount } from "./modules/mera/verifyService";
+import type { AgentView, AgentWallet, OwnerSession, Range, Rule, ServiceView, Tab } from "./types";
 import { IdentityView } from "./views/IdentityView";
 import { InvoicesView } from "./views/InvoicesView";
 import { ServicesView } from "./views/ServicesView";
@@ -30,10 +31,26 @@ export function App() {
   const [agentView, setAgentView] = useState<AgentView>("all");
   const [range, setRange] = useState<Range>("week");
   const [rules, setRules] = useState<Rule[]>(() => readJson<Rule[] | null>("agentledger.rules", null) ?? defaultRules("blog"));
+  const [owner, setOwner] = useState<OwnerSession | null>(() => readJson<OwnerSession | null>("agentledger.owner", null));
+  const [environmentId, setEnvironmentId] = useState(() => readJson<string>("agentledger.environment", ""));
+  const [wallets, setWallets] = useState<AgentWallet[]>(() => readJson<AgentWallet[]>("agentledger.wallets", []));
 
   useEffect(() => {
     localStorage.setItem("agentledger.rules", JSON.stringify(rules));
   }, [rules]);
+
+  useEffect(() => {
+    if (owner) localStorage.setItem("agentledger.owner", JSON.stringify(owner));
+    else localStorage.removeItem("agentledger.owner");
+  }, [owner]);
+
+  useEffect(() => {
+    localStorage.setItem("agentledger.environment", JSON.stringify(environmentId));
+  }, [environmentId]);
+
+  useEffect(() => {
+    localStorage.setItem("agentledger.wallets", JSON.stringify(wallets));
+  }, [wallets]);
 
   function toggleRule(id: string, allowed: boolean) {
     setRules((current) => current.map((rule) => (rule.id === id ? { ...rule, allowed } : rule)));
@@ -88,7 +105,21 @@ export function App() {
           onAction={ruleAction}
         />
       )}
-      {tab === "wallet" && <WalletView />}
+      {tab === "wallet" && (
+        <WalletView
+          services={SERVICES}
+          owner={owner}
+          onCreateOwner={async () => {
+            const next = await unlockOwnerAccount();
+            setOwner({ credentialId: next.credentialId, ownerAddress: next.ownerAddress });
+          }}
+          onSignOut={() => setOwner(null)}
+          environmentId={environmentId}
+          onEnvironmentId={setEnvironmentId}
+          wallets={wallets}
+          onCreateWallet={(wallet) => setWallets((current) => [wallet, ...current])}
+        />
+      )}
       {tab === "identity" && <IdentityView />}
       {tab === "invoices" && <InvoicesView />}
     </>
