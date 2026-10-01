@@ -1,0 +1,43 @@
+:root {
+  color: #333;
+  background: #fafafa;
+  font-family: Georgia, serif;
+  line-height: 1.5;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; background: #fafafa; }
+
+button, input, select { font-family: inherit; }
+
+.ledger-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: #fff;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.ledger-header h1 { margin: 0; font-size: 1.35rem; font-weight: normal; }
+
+.ledger-header nav { display: flex; gap: 0.35rem; }
+
+.ledger-header button {
+  border: 0;
+  background: transparent;
+  color: #007acc;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.2rem 0.45rem;
+}
+
+.ledger-header button.is-active { text-decoration: underline; }
+
+.ledger-page { padding: 1.25rem 1.75rem 2.5rem; }
+
+.ledger-page h1 { margin: 0 0 0.35rem; font-weight: normal; font-size: 1.6rem; }
+
+.obs-meta { color: #666; }
