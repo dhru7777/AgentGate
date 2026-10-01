@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { defaultRules, SERVICES } from "./data";
 import type { AgentView, Range, Rule, ServiceView, Tab } from "./types";
 import { IdentityView } from "./views/IdentityView";
+import { InvoicesView } from "./views/InvoicesView";
 import { ServicesView } from "./views/ServicesView";
 import { WalletView } from "./views/WalletView";
 
@@ -89,12 +90,7 @@ export function App() {
       )}
       {tab === "wallet" && <WalletView />}
       {tab === "identity" && <IdentityView />}
-      {tab === "invoices" && (
-        <main className="ledger-page">
-          <h1>Invoices</h1>
-          <p className="obs-meta">Paid requests will be listed here.</p>
-        </main>
-      )}
+      {tab === "invoices" && <InvoicesView />}
     </>
   );
 }
