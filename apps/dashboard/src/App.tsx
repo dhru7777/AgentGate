@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { defaultRules } from "./data";
 import { unlockOwnerAccount } from "./modules/mera/verifyService";
 import { blogIsVerified, fetchBlogAnalytics, fetchBlogRules, markBlogVerified, updateBlogRules } from "./modules/services/blogAnalytics";
-import { loadServices, nextServiceId, parseOrigin, saveUserServices } from "./modules/services/catalog";
+import { hideService, loadServices, nextServiceId, parseOrigin, saveUserServices } from "./modules/services/catalog";
 import type { AgentView, AgentWallet, OwnerSession, Range, Rule, Service, ServiceView, Summary, Tab } from "./types";
 import { ServiceBoard } from "./screens/ServiceBoard";
 import { IdentityView } from "./views/IdentityView";
@@ -124,7 +124,7 @@ export function App() {
   }
 
   function removeService(id: string) {
-    if (id === "blog") return;
+    hideService(id);
     const next = services.filter((service) => service.id !== id);
     setServices(next);
     saveUserServices(next);

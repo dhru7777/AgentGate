@@ -48,11 +48,9 @@ export function ServiceBoard({
         <div className="service-board-row" key={service.id}>
           <div className="service-name-line">
             <strong>{service.name}</strong>
-            {service.id !== "blog" && (
-              <button type="button" className="service-remove" onClick={() => onRemove(service.id)}>
-                Remove
-              </button>
-            )}
+            <button type="button" className="service-delete" aria-label={`Delete ${service.name}`} onClick={() => onRemove(service.id)}>
+              ×
+            </button>
           </div>
           <ServicePreview name={service.name} origin={service.origin} />
           <button type="button" className="deck-link" onClick={() => onOpenDeck(service.id)}>

@@ -2,6 +2,23 @@ import { SERVICES } from "../../data";
 import type { Service } from "../../types";
 
 const STORAGE_KEY = "agentledger.userServices";
+const HIDDEN_KEY = "agentledger.hiddenServices";
+
+function hiddenIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(HIDDEN_KEY);
+    const parsed = raw ? (JSON.parse(raw) as string[]) : [];
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function hideService(id: string) {
+  const hidden = hiddenIds();
+  hidden.add(id);
+  localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden]));
+}
 
 function readExtra(): Service[] {
   try {
@@ -16,7 +33,8 @@ function readExtra(): Service[] {
 
 export function loadServices(): Service[] {
   const builtinIds = new Set(SERVICES.map((service) => service.id));
-  return [...SERVICES, ...readExtra().filter((service) => !builtinIds.has(service.id))];
+  const hidden = hiddenIds();
+  return [...SERVICES, ...readExtra().filter((service) => !builtinIds.has(service.id))].filter((service) => !hidden.has(service.id));
 }
 
 export function saveUserServices(services: Service[]) {
