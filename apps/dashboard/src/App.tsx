@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { defaultRules, SERVICES } from "./data";
 import type { AgentView, Range, Rule, ServiceView, Tab } from "./types";
+import { IdentityView } from "./views/IdentityView";
 import { ServicesView } from "./views/ServicesView";
 import { WalletView } from "./views/WalletView";
 
@@ -87,12 +88,7 @@ export function App() {
         />
       )}
       {tab === "wallet" && <WalletView />}
-      {tab === "identity" && (
-        <main className="ledger-page">
-          <h1>Identity</h1>
-          <p className="obs-meta">ERC-8004 records come next.</p>
-        </main>
-      )}
+      {tab === "identity" && <IdentityView />}
       {tab === "invoices" && (
         <main className="ledger-page">
           <h1>Invoices</h1>
