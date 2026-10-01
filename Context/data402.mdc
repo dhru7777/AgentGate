@@ -1,0 +1,14 @@
+---
+description: Data402 project rules. Always applied.
+alwaysApply: true
+---
+
+Before any implementation work, read `instructions/README.md` and follow the reading order it lists.
+Minimum required reading for every session: `instructions/01-CONTEXT.md`, `instructions/02-INSTRUCTIONS.md`, `instructions/03-ARCHITECTURE.md`, `instructions/10-BUILD-PLAN.md`.
+
+Hard rules:
+- Fail closed. No verified payment means no protected content.
+- Never log, return, or commit private keys, PRF outputs, or API secrets.
+- Port from `midnightx402` and `Rho-AgentLedger` per `instructions/05-REUSE-MAP.md` before writing new code.
+- Every new module needs a Zod schema at its boundary and at least one test.
+- If a decision is not covered in `instructions/12-DECISIONS.md`, stop and ask instead of inventing one.
