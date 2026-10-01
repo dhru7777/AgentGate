@@ -120,7 +120,7 @@ export function App() {
           onCreateWallet={(wallet) => setWallets((current) => [wallet, ...current])}
         />
       )}
-      {tab === "identity" && <IdentityView />}
+      {tab === "identity" && <IdentityView services={SERVICES} />}
       {tab === "invoices" && <InvoicesView />}
     </>
   );
