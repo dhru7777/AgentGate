@@ -379,11 +379,10 @@ function Permissions({
   );
 }
 
-
 export function ServicesView({
   services,
   serviceId,
-  onService,
+  onBack,
   view,
   onView,
   agentView,
@@ -393,10 +392,14 @@ export function ServicesView({
   rules,
   onToggle,
   onAction,
+  liveSummary,
+  liveLoading,
+  liveError,
+  onVerify,
 }: {
   services: Service[];
   serviceId: string;
-  onService: (id: string) => void;
+  onBack: () => void;
   view: ServiceView;
   onView: (view: ServiceView) => void;
   agentView: AgentView;
@@ -406,9 +409,17 @@ export function ServicesView({
   rules: Rule[];
   onToggle: (id: string, allowed: boolean) => void;
   onAction: (action: "allow_all" | "block_all_ai" | "reset") => void;
+  liveSummary: Summary | null;
+  liveLoading: boolean;
+  liveError: string;
+  onVerify: () => void;
 }) {
   const service = services.find((item) => item.id === serviceId) ?? services[0];
-  const summary = useMemo(() => summarize(service?.id ?? "blog", range), [service, range]);
+  const generated = useMemo(
+    () => (service && service.id !== "blog" ? summarize(service.id, range) : null),
+    [service, range],
+  );
+  const summary = service?.id === "blog" ? liveSummary : generated;
   if (!service) return null;
   const titles: Record<ServiceView, string> = {
     graphs: "Observability",
@@ -425,21 +436,19 @@ export function ServicesView({
     { id: "permissions", label: "Permissions" },
   ];
 
+  const live = service.id === "blog";
+
   return (
-    <div className="obs">
+    <div className={`obs${service.verified && summary ? " analytics-pop" : ""}`}>
       <aside className="obs-nav">
-        <p className="obs-brand">Services</p>
-        <div className="obs-nav-tabs">
-          {services.map((item) => (
-            <button key={item.id} type="button" className={item.id === service.id ? "is-active" : ""} onClick={() => onService(item.id)}>
-              {item.name}
-            </button>
-          ))}
-        </div>
+        <button type="button" className="deck-back" onClick={onBack}>Services</button>
+        <p className="obs-brand">{service.name}</p>
+        {service.verified && live && (
+          <>
         <p className="obs-brand obs-brand-gap">Analytics</p>
         <div className="obs-nav-tabs">
           {nav.map((item) => (
-            <button key={item.id} type="button" className={view === item.id ? "is-active" : ""} onClick={() => onView(item.id)}>
+            <button key={item.id} type="button" data-tab={item.id} className={view === item.id ? "is-active" : ""} onClick={() => onView(item.id)}>
               {item.label}
             </button>
           ))}
@@ -459,12 +468,41 @@ export function ServicesView({
             ))}
           </div>
         )}
+          </>
+        )}
       </aside>
       <main className="obs-main">
+        {!service.verified && (
+          <div className="ledger-card">
+            <h2>Verify service</h2>
+            <p className="obs-lead">
+              {service.name} uses the live dashboard at {live ? "dheeraj-work.netlify.app/analytics" : service.origin}. Verify it and that dashboard opens here.
+            </p>
+            <button type="button" className="obs-lock-submit" onClick={onVerify} disabled={liveLoading}>
+              {liveLoading ? "Opening dashboard…" : "Verify service"}
+            </button>
+            {liveError && <p className="obs-lock-error">{liveError}</p>}
+          </div>
+        )}
+        {live && service.verified && !summary && (
+          <p className="obs-meta">{liveError || (liveLoading ? "Loading the live dashboard…" : "Waiting for analytics.")}</p>
+        )}
+        {service.verified && !live && (
+          <div className="ledger-card">
+            <h2>{service.name}</h2>
+            <p className="obs-lead">This site is saved. Its observability deck opens once the site is connected the way dheeraj.blog is.</p>
+          </div>
+        )}
+        {service.verified && live && summary && (
+          <>
         <div className="obs-top">
           <div>
             <h1>{titles[view]}</h1>
-            <p className="obs-meta">{service.origin}</p>
+            <p className="obs-meta">
+              {live
+                ? `${service.origin}/analytics · live · last request ${summary.recent[0] ? new Date(summary.recent[0].ts).toLocaleString() : "none"}`
+                : `${service.origin} · verified with your passkey`}
+            </p>
           </div>
           <div className="obs-filters">
             {([
@@ -484,6 +522,8 @@ export function ServicesView({
         {view === "events" && <Events summary={summary} />}
         {view === "permissions" && (
           <Permissions rules={rules} summary={summary} origin={service.origin} onToggle={onToggle} onAction={onAction} />
+        )}
+          </>
         )}
       </main>
     </div>
