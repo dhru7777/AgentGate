@@ -8,6 +8,18 @@ import type { AgentView, Range, Rule, Service, ServiceView, Summary } from "../t
 const fmt = (value: number) => value.toLocaleString();
 const money = (value: number) => `$${value.toFixed(2)}`;
 
+function formatTimeSpent(ms: number | null): string {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return "—";
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  return remMinutes ? `${hours}h ${remMinutes}m` : `${hours}h`;
+}
+
 function Kpis({ summary }: { summary: Summary }) {
   const items: [string, string][] = [
     ["Total requests", fmt(summary.totalRequests)],
@@ -230,7 +242,7 @@ function Events({ summary }: { summary: Summary }) {
     if (agent !== "all" && event.agent !== agent) return false;
     if (status !== "all" && String(event.status) !== status) return false;
     if (!q) return true;
-    const hay = `${event.path} ${event.kind} ${event.agent} ${event.status} ${event.city} ${event.country}`.toLowerCase();
+    const hay = `${event.path} ${event.kind} ${event.agent} ${event.status} ${event.city} ${event.country} ${formatTimeSpent(event.durationMs)}`.toLowerCase();
     return hay.includes(q);
   });
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -279,6 +291,7 @@ function Events({ summary }: { summary: Summary }) {
                 <th>Client</th>
                 <th>Status</th>
                 <th>Place</th>
+                <th title="How long this client stayed, from their first request in the visit to the last. Visits reset after 30 minutes of quiet. A single request has no time spent.">Time spent</th>
               </tr>
             </thead>
             <tbody>
@@ -289,6 +302,7 @@ function Events({ summary }: { summary: Summary }) {
                   <td>{event.agent}{event.agentId ? ` #${event.agentId}` : ""}</td>
                   <td>{event.status}</td>
                   <td>{event.city}</td>
+                  <td>{formatTimeSpent(event.durationMs)}</td>
                 </tr>
               ))}
             </tbody>

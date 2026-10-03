@@ -163,6 +163,7 @@ function visit(input: {
     lat: place.lat,
     lon: place.lon,
     amountUsdc: input.amountUsdc ?? 0,
+    durationMs: null,
   };
 }
 

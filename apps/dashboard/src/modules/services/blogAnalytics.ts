@@ -52,6 +52,7 @@ type LivePayload = {
     lon?: number;
     country?: string;
     city?: string;
+    durationMs?: number;
   }[];
   updatedAt?: string;
 };
@@ -66,23 +67,73 @@ function dayLabel(value: string): string {
   });
 }
 
+const SESSION_GAP_MS = 30 * 60 * 1000;
+
+function measuredDuration(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+/** Same client and place, split when requests are more than 30 minutes apart. */
+function visitorKey(visit: Visit): string {
+  return [visit.agent, visit.city, visit.country, visit.lat, visit.lon].join("|");
+}
+
+function withTimeSpent(visits: Visit[]): Visit[] {
+  const groups = new Map<string, number[]>();
+  visits.forEach((visit, index) => {
+    if (visit.durationMs != null) return;
+    const key = visitorKey(visit);
+    const indexes = groups.get(key) ?? [];
+    indexes.push(index);
+    groups.set(key, indexes);
+  });
+
+  const durationMs = visits.map((visit) => visit.durationMs);
+  for (const indexes of groups.values()) {
+    const ordered = [...indexes].sort((a, b) => Date.parse(visits[a].ts) - Date.parse(visits[b].ts));
+    let session: number[] = [];
+    const close = () => {
+      if (session.length < 2) {
+        session = [];
+        return;
+      }
+      const span = Date.parse(visits[session[session.length - 1]].ts) - Date.parse(visits[session[0]].ts);
+      if (span >= 0) {
+        for (const index of session) durationMs[index] = span;
+      }
+      session = [];
+    };
+    for (const index of ordered) {
+      const previous = session[session.length - 1];
+      if (previous != null && Date.parse(visits[index].ts) - Date.parse(visits[previous].ts) > SESSION_GAP_MS) close();
+      session.push(index);
+    }
+    close();
+  }
+
+  return visits.map((visit, index) => ({ ...visit, durationMs: durationMs[index] }));
+}
+
 function toSummary(data: LivePayload): Summary {
-  const recent: Visit[] = data.recent.map((row, index) => ({
-    id: `${row.ts}-${index}`,
-    serviceId: "blog",
-    ts: row.ts,
-    path: row.path,
-    kind: row.kind,
-    agent: row.agent,
-    agentId: null,
-    outcome: row.status === 402 ? "good" : "human",
-    status: row.status,
-    city: row.city || row.country || "",
-    country: row.country || "",
-    lat: row.lat ?? 0,
-    lon: row.lon ?? 0,
-    amountUsdc: 0,
-  }));
+  const recent = withTimeSpent(
+    data.recent.map((row, index) => ({
+      id: `${row.ts}-${index}`,
+      serviceId: "blog",
+      ts: row.ts,
+      path: row.path,
+      kind: row.kind,
+      agent: row.agent,
+      agentId: null,
+      outcome: row.status === 402 ? "good" : "human",
+      status: row.status,
+      city: row.city || row.country || "",
+      country: row.country || "",
+      lat: row.lat ?? 0,
+      lon: row.lon ?? 0,
+      amountUsdc: 0,
+      durationMs: measuredDuration(row.durationMs),
+    })),
+  );
   const status = new Map<string, number>();
   for (const row of recent) {
     const name = String(row.status);

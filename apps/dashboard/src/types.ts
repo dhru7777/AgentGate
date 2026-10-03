@@ -36,6 +36,8 @@ export type Visit = {
   lat: number;
   lon: number;
   amountUsdc: number;
+  /** Milliseconds on the site for this visit. Null when a single request is all we saw. */
+  durationMs: number | null;
 };
 
 export type Rule = {
