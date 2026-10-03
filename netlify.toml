@@ -1,0 +1,20 @@
+[build]
+  base = "apps/dashboard"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Default functions directory is apps/dashboard/netlify/functions once base is set.
+
+[[redirects]]
+  from = "/api/monad-account"
+  to = "/.netlify/functions/monad-account"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

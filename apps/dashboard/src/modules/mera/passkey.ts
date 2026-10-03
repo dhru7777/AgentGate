@@ -3,7 +3,7 @@ import { createPasskeyWithPrfOutput, getPasskeyPrfOutput, isMeraError, type Pass
 const CREDENTIAL_KEY = "agentledger.passkey";
 
 export function relyingParty() {
-  return { id: window.location.hostname, name: "AgentLedger" };
+  return { id: window.location.hostname, name: "Agent Gate" };
 }
 
 export function loadCredential(): PasskeyCredentialMetadata | null {
@@ -37,7 +37,7 @@ export async function unlockPrf(): Promise<{ credential: PasskeyCredentialMetada
   }
   const created = await createPasskeyWithPrfOutput({
     rp,
-    user: { name: "agentledger-owner", displayName: "AgentLedger owner" },
+    user: { name: "agent-gate", displayName: "Agent Gate" },
   });
   const credential = { credentialId: created.credentialId, transports: created.transports };
   saveCredential(credential);

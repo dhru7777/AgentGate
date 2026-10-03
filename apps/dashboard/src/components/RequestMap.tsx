@@ -1,23 +1,31 @@
+import { useEffect, useRef, useState } from "react";
+import * as THREE from "three";
 import type { Summary } from "../types";
 
-const LAND: [number, number][][] = [
-  [[-168, 71], [-153, 71], [-140, 70], [-128, 71], [-105, 74], [-88, 74], [-70, 68], [-62, 58], [-56, 48], [-68, 44], [-80, 25], [-90, 29], [-97, 26], [-105, 22], [-112, 24], [-117, 32], [-124, 40], [-125, 49], [-136, 56], [-153, 59], [-166, 64]],
-  [[-90, 15], [-83, 9], [-77, 8], [-80, 8], [-87, 13], [-92, 16]],
-  [[-80, 12], [-77, 8], [-71, 12], [-67, 10], [-60, 8], [-50, 0], [-35, -5], [-35, -10], [-40, -22], [-48, -28], [-62, -40], [-68, -55], [-74, -52], [-71, -42], [-70, -18], [-78, -5], [-80, 8]],
-  [[-10, 36], [-9, 42], [-2, 43], [0, 51], [-5, 58], [-8, 54], [-10, 52], [-5, 48], [2, 51], [8, 54], [10, 58], [12, 56], [8, 44], [3, 43], [-5, 36]],
-  [[-17, 15], [-16, 28], [10, 37], [11, 32], [25, 32], [32, 31], [43, 12], [51, 12], [43, -1], [40, -15], [35, -25], [28, -33], [18, -34], [14, -18], [9, 4], [8, 13], [-5, 5], [-17, 14]],
-  [[28, 41], [36, 36], [44, 37], [48, 42], [60, 45], [68, 45], [78, 43], [87, 28], [92, 22], [98, 8], [103, 1], [104, -6], [115, -8], [120, -8], [128, -3], [141, -10], [147, -18], [153, -26], [146, -38], [138, -35], [128, -32], [115, -34], [114, -22], [104, -5], [98, 8], [80, 6], [72, 8], [68, 24], [60, 25], [57, 26], [51, 25], [44, 12], [43, 12], [36, 22], [32, 31]],
-  [[104, 1], [109, 14], [100, 20], [98, 8]],
-  [[131, 31], [135, 35], [140, 42], [145, 44], [145, 43], [141, 35], [132, 31]],
-  [[113, -22], [122, -18], [130, -12], [136, -14], [142, -11], [146, -18], [153, -26], [146, -38], [130, -32], [115, -34], [114, -22]],
-];
+type Place = Summary["places"][number];
 
-const xOf = (lon: number) => lon + 180;
-const yOf = (lat: number) => 90 - lat;
+function placeVector(lat: number, lon: number, radius: number) {
+  const phi = THREE.MathUtils.degToRad(90 - lat);
+  const theta = THREE.MathUtils.degToRad(lon + 180);
+  return new THREE.Vector3(
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta),
+  );
+}
+
+function placeLabel(place: Place) {
+  const where = place.city ? `${place.city}, ${place.country}` : place.country;
+  return `${where} · ${place.count.toLocaleString()}`;
+}
 
 export function RequestMap({ places, total }: { places: Summary["places"]; total: number }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const placesRef = useRef(places);
+  const syncRef = useRef<(() => void) | null>(null);
+  placesRef.current = places;
+  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   const located = places.reduce((sum, place) => sum + place.count, 0);
-  const max = Math.max(...places.map((place) => place.count), 1);
   const byCountry = new Map<string, { country: string; count: number; cities: Set<string> }>();
   for (const place of places) {
     const current = byCountry.get(place.country) ?? { country: place.country, count: 0, cities: new Set<string>() };
@@ -27,43 +35,247 @@ export function RequestMap({ places, total }: { places: Summary["places"]; total
   }
   const rows = [...byCountry.values()].sort((a, b) => b.count - a.count);
 
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const stage = host;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    stage.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 40);
+    camera.position.set(0, 0.42, 3.35);
+
+    const stars = new Float32Array(900 * 3);
+    for (let i = 0; i < 900; i += 1) {
+      const radius = 7 + Math.random() * 5;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      stars[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      stars[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      stars[i * 3 + 2] = radius * Math.cos(phi);
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute("position", new THREE.BufferAttribute(stars, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0xd7e4ff, size: 0.018, transparent: true, opacity: 0.75 });
+    scene.add(new THREE.Points(starGeo, starMat));
+
+    scene.add(new THREE.AmbientLight(0xb7c9df, 0.55));
+    const sun = new THREE.DirectionalLight(0xfff6ea, 2.2);
+    sun.position.set(2.2, 0.8, 5);
+    scene.add(sun);
+
+    const earth = new THREE.Group();
+    earth.rotation.y = 1.15;
+    earth.rotation.x = 0.42;
+    scene.add(earth);
+
+    const loader = new THREE.TextureLoader();
+    const colorMap = loader.load("/globe/earth.jpg");
+    const bumpMap = loader.load("/globe/earth-bump.jpg");
+    colorMap.colorSpace = THREE.SRGBColorSpace;
+    bumpMap.colorSpace = THREE.NoColorSpace;
+    colorMap.anisotropy = 8;
+
+    const globe = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 96, 96),
+      new THREE.MeshStandardMaterial({
+        map: colorMap,
+        emissiveMap: colorMap,
+        emissive: new THREE.Color(0xffffff),
+        emissiveIntensity: 0.42,
+        bumpMap,
+        bumpScale: 0.04,
+        roughness: 0.82,
+        metalness: 0.02,
+      }),
+    );
+    earth.add(globe);
+
+    const atmosphere = new THREE.Mesh(
+      new THREE.SphereGeometry(1.12, 64, 64),
+      new THREE.ShaderMaterial({
+        transparent: true,
+        side: THREE.BackSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        uniforms: {},
+        vertexShader: `
+          varying vec3 vNormal;
+          void main() {
+            vNormal = normalize(normalMatrix * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vNormal;
+          void main() {
+            float rim = pow(0.62 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.4);
+            gl_FragColor = vec4(0.45, 0.72, 1.0, 1.0) * rim;
+          }
+        `,
+      }),
+    );
+    scene.add(atmosphere);
+
+    const markers = new THREE.Group();
+    earth.add(markers);
+
+    const syncMarkers = () => {
+      for (const child of [...markers.children]) {
+        markers.remove(child);
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          (child.material as THREE.Material).dispose();
+        }
+      }
+      const list = placesRef.current;
+      const max = Math.max(...list.map((place) => place.count), 1);
+      for (const place of list) {
+        const scale = 0.012 + (Math.sqrt(place.count) / Math.sqrt(max)) * 0.02;
+        const dot = new THREE.Mesh(
+          new THREE.SphereGeometry(1, 18, 18),
+          new THREE.MeshStandardMaterial({
+            color: 0xfff1e8,
+            emissive: 0xff5a1f,
+            emissiveIntensity: 1.4,
+            roughness: 0.35,
+          }),
+        );
+        dot.scale.setScalar(scale);
+        dot.position.copy(placeVector(place.lat, place.lon, 1.015));
+        dot.userData.label = placeLabel(place);
+        markers.add(dot);
+      }
+    };
+    syncRef.current = syncMarkers;
+    syncMarkers();
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let frame = 0;
+    let dragging = false;
+    let moved = false;
+    let auto = true;
+    let lastX = 0;
+    let lastY = 0;
+    let hover = "";
+
+    function resize() {
+      const width = stage.clientWidth || 1;
+      const height = stage.clientHeight || 1;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height, false);
+    }
+
+    function onDown(event: PointerEvent) {
+      dragging = true;
+      moved = false;
+      auto = false;
+      lastX = event.clientX;
+      lastY = event.clientY;
+      stage.setPointerCapture(event.pointerId);
+    }
+
+    function onUp() {
+      dragging = false;
+      auto = true;
+    }
+
+    function onMove(event: PointerEvent) {
+      const rect = stage.getBoundingClientRect();
+      if (dragging) {
+        const dx = event.clientX - lastX;
+        const dy = event.clientY - lastY;
+        if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+        earth.rotation.y += dx * 0.005;
+        earth.rotation.x = THREE.MathUtils.clamp(earth.rotation.x + dy * 0.004, -0.65, 0.65);
+        lastX = event.clientX;
+        lastY = event.clientY;
+        return;
+      }
+      if (moved) return;
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hit = raycaster.intersectObjects(markers.children, false)[0];
+      const text = typeof hit?.object.userData.label === "string" ? hit.object.userData.label : "";
+      if (text !== hover) {
+        hover = text;
+        setTip(text ? { x: event.clientX - rect.left, y: event.clientY - rect.top, text } : null);
+      } else if (text) {
+        setTip({ x: event.clientX - rect.left, y: event.clientY - rect.top, text });
+      }
+    }
+
+    function onLeave() {
+      hover = "";
+      setTip(null);
+    }
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(host);
+    stage.addEventListener("pointerdown", onDown);
+    stage.addEventListener("pointerup", onUp);
+    stage.addEventListener("pointercancel", onUp);
+    stage.addEventListener("pointermove", onMove);
+    stage.addEventListener("pointerleave", onLeave);
+    resize();
+
+    const tick = () => {
+      if (auto && !dragging) earth.rotation.y += 0.0018;
+      renderer.render(scene, camera);
+      frame = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () => {
+      cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      stage.removeEventListener("pointerdown", onDown);
+      stage.removeEventListener("pointerup", onUp);
+      stage.removeEventListener("pointercancel", onUp);
+      stage.removeEventListener("pointermove", onMove);
+      stage.removeEventListener("pointerleave", onLeave);
+      syncRef.current = null;
+      starGeo.dispose();
+      starMat.dispose();
+      globe.geometry.dispose();
+      (globe.material as THREE.Material).dispose();
+      atmosphere.geometry.dispose();
+      (atmosphere.material as THREE.Material).dispose();
+      colorMap.dispose();
+      bumpMap.dispose();
+      renderer.dispose();
+      renderer.domElement.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    syncRef.current?.();
+  }, [places]);
+
   return (
     <section className="obs-map">
       <h2>Where requests come from</h2>
       <p className="obs-lead">
         {located
-          ? `${located.toLocaleString()} of ${total.toLocaleString()} requests in this range have a rough location. Hover a dot for the city.`
+          ? `${located.toLocaleString()} of ${total.toLocaleString()} requests in this range have a rough location. Drag the globe. Hover a light for the city.`
           : "No located requests in this range yet."}
       </p>
-      <svg viewBox="0 0 360 180" role="img" aria-label="Request locations">
-        {Array.from({ length: 11 }, (_, index) => -150 + index * 30).map((lon) => (
-          <line key={`lon-${lon}`} x1={xOf(lon)} y1={0} x2={xOf(lon)} y2={180} />
-        ))}
-        {Array.from({ length: 5 }, (_, index) => -60 + index * 30).map((lat) => (
-          <line key={`lat-${lat}`} x1={0} y1={yOf(lat)} x2={360} y2={yOf(lat)} />
-        ))}
-        {LAND.map((ring, index) => (
-          <path
-            key={index}
-            className="obs-map-land"
-            d={`${ring.map(([lon, lat], point) => `${point ? "L" : "M"}${xOf(lon).toFixed(1)},${yOf(lat).toFixed(1)}`).join(" ")} Z`}
-          />
-        ))}
-        {places.map((place) => {
-          const radius = 1.5 + (Math.sqrt(place.count) / Math.sqrt(max)) * 3.2;
-          return (
-            <circle
-              key={`${place.city}-${place.lat}`}
-              className="obs-map-dot"
-              cx={xOf(place.lon)}
-              cy={yOf(place.lat)}
-              r={radius}
-            >
-              <title>{`${place.city ? `${place.city}, ` : ""}${place.country} · ${place.count}`}</title>
-            </circle>
-          );
-        })}
-      </svg>
+      <div className="obs-globe" ref={hostRef}>
+        {tip && (
+          <div className="obs-globe-tip" style={{ left: tip.x, top: tip.y }}>
+            {tip.text}
+          </div>
+        )}
+      </div>
       <div className="table-wrap obs-map-list">
         <table>
           <thead>

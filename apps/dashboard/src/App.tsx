@@ -3,7 +3,7 @@ import { defaultRules } from "./data";
 import { unlockOwnerAccount } from "./modules/mera/verifyService";
 import { blogIsVerified, fetchBlogAnalytics, fetchBlogRules, markBlogVerified, updateBlogRules } from "./modules/services/blogAnalytics";
 import { hideService, loadServices, nextServiceId, parseOrigin, saveUserServices } from "./modules/services/catalog";
-import type { AgentView, AgentWallet, OwnerSession, Range, Rule, Service, ServiceView, Summary, Tab } from "./types";
+import type { AgentView, OwnerSession, Range, Rule, Service, ServiceView, Summary, Tab } from "./types";
 import { ServiceBoard } from "./screens/ServiceBoard";
 import { IdentityView } from "./views/IdentityView";
 import { InvoicesView } from "./views/InvoicesView";
@@ -46,26 +46,11 @@ export function App() {
   const [agentView, setAgentView] = useState<AgentView>("all");
   const [range, setRange] = useState<Range>("week");
   const [rulesByService, setRulesByService] = useState<Record<string, Rule[]>>(() => initialRules(loadServices()));
-  const [owner, setOwner] = useState<OwnerSession | null>(() => readJson<OwnerSession | null>("agentledger.owner", null));
-  const [environmentId, setEnvironmentId] = useState(() => readJson<string>("agentledger.environment", ""));
-  const [wallets, setWallets] = useState<AgentWallet[]>(() => readJson<AgentWallet[]>("agentledger.wallets", []));
+  const [owner, setOwner] = useState<OwnerSession | null>(null);
 
   useEffect(() => {
     localStorage.setItem("agentledger.rules", JSON.stringify(rulesByService));
   }, [rulesByService]);
-
-  useEffect(() => {
-    if (owner) localStorage.setItem("agentledger.owner", JSON.stringify(owner));
-    else localStorage.removeItem("agentledger.owner");
-  }, [owner]);
-
-  useEffect(() => {
-    localStorage.setItem("agentledger.environment", JSON.stringify(environmentId));
-  }, [environmentId]);
-
-  useEffect(() => {
-    localStorage.setItem("agentledger.wallets", JSON.stringify(wallets));
-  }, [wallets]);
 
   useEffect(() => {
     if (!blogVerified) return;
@@ -234,17 +219,12 @@ export function App() {
       )}
       {tab === "wallet" && (
         <WalletView
-          services={services}
           owner={owner}
-          onCreateOwner={async () => {
+          onUnlock={async () => {
             const next = await unlockOwnerAccount();
             setOwner({ credentialId: next.credentialId, ownerAddress: next.ownerAddress });
           }}
-          onSignOut={() => setOwner(null)}
-          environmentId={environmentId}
-          onEnvironmentId={setEnvironmentId}
-          wallets={wallets}
-          onCreateWallet={(wallet) => setWallets((current) => [wallet, ...current])}
+          onLock={() => setOwner(null)}
         />
       )}
       {tab === "identity" && <IdentityView services={services} />}

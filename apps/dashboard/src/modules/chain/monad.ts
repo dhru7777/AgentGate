@@ -17,6 +17,10 @@ export const monadTestnet = defineChain({
 export const MONAD_TESTNET_CHAIN_ID = monadTestnet.id;
 export const MONAD_TESTNET_CAIP2 = "eip155:10143" as const;
 
+export const MONAD_TESTNET_USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3" as const;
+
+/** Agent Gate receive address on Monad testnet (eip155:10143). */
+export const MONAD_RECEIVE_ADDRESS = "0xC90AC2b557088c50264de70969D71419311636c1" as const;
 export const MONAD_TESTNET_IDENTITY_REGISTRY = "0x8004A818BFB912233c491871b3d84c89A494BD9e" as const;
 export const MONAD_TESTNET_REPUTATION_REGISTRY = "0x8004B663056A597Dffe9eCcC1965A193B7388713" as const;
 
