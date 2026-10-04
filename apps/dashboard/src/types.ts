@@ -101,15 +101,3 @@ export type Summary = {
   places: { country: string; city: string; lat: number; lon: number; count: number }[];
   recent: Visit[];
 };
-
-export type Invoice = {
-  id: string;
-  ts: string;
-  serviceId: string;
-  from: string;
-  agentId: number | null;
-  path: string;
-  amountUsdc: number;
-  txHash: string;
-  indexed: "matched";
-};

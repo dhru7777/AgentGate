@@ -1,5 +1,5 @@
 import { IDENTITIES, NOW, SERVICES, VISITS } from "./data";
-import type { Invoice, Range, Summary, Visit } from "./types";
+import type { Range, Summary, Visit } from "./types";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -130,34 +130,6 @@ export function summarize(serviceId: string, range: Range): Summary {
     places: [...places.values()].sort((a, b) => b.count - a.count),
     recent,
   };
-}
-
-export function txHash(id: string): string {
-  let a = 2166136261;
-  let b = 16777619;
-  const text = `${id}:agentledger:usdc`;
-  for (let i = 0; i < text.length; i += 1) {
-    a = Math.imul(a ^ text.charCodeAt(i), 16777619);
-    b = Math.imul(b ^ text.charCodeAt(i), 2246822519);
-  }
-  const parts = [a, b, a ^ b, Math.imul(a, 3) ^ b, b ^ 0x9e3779b9, a ^ 0x85ebca6b];
-  return `0x${parts.map((part) => (part >>> 0).toString(16).padStart(8, "0")).join("").slice(0, 64)}`;
-}
-
-export function invoicesFor(serviceId: string | "all"): Invoice[] {
-  return VISITS.filter((visit) => visit.outcome === "paid" && (serviceId === "all" || visit.serviceId === serviceId))
-    .sort((a, b) => (a.ts < b.ts ? 1 : -1))
-    .map((visit) => ({
-      id: visit.id,
-      ts: visit.ts,
-      serviceId: visit.serviceId,
-      from: visit.agent,
-      agentId: visit.agentId,
-      path: visit.path,
-      amountUsdc: visit.amountUsdc,
-      txHash: txHash(visit.id),
-      indexed: "matched" as const,
-    }));
 }
 
 export function identitiesFor(serviceId: string | "all") {

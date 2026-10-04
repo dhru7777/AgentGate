@@ -55,6 +55,24 @@ type LivePayload = {
     durationMs?: number;
   }[];
   updatedAt?: string;
+  since?: string;
+};
+
+export type AccessHit = {
+  id: string;
+  ts: string;
+  path: string;
+  agent: string;
+  status: number;
+  durationMs: number | null;
+};
+
+export type BlogAccessLog = {
+  since: string;
+  updatedAt: string;
+  totalRequests: number;
+  revenueUsdc: number;
+  hits: AccessHit[];
 };
 
 function dayLabel(value: string): string {
@@ -185,6 +203,25 @@ async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
 export async function fetchBlogAnalytics(range: Range): Promise<Summary> {
   const data = await readJson<LivePayload>(`/api/analytics?range=${range}`);
   return toSummary(data);
+}
+
+/** Request rows the blog still has for this period. Invoices are built from these, not from sample visits. */
+export async function fetchBlogAccessLog(range: Range): Promise<BlogAccessLog> {
+  const data = await readJson<LivePayload>(`/api/analytics?range=${range}`);
+  return {
+    since: data.since ?? "",
+    updatedAt: data.updatedAt ?? "",
+    totalRequests: data.totalRequests,
+    revenueUsdc: data.revenueUsdc,
+    hits: data.recent.map((row, index) => ({
+      id: `${row.ts}-${index}-${row.path}`,
+      ts: row.ts,
+      path: row.path,
+      agent: row.agent,
+      status: row.status,
+      durationMs: measuredDuration(row.durationMs),
+    })),
+  };
 }
 
 export async function fetchBlogRules(): Promise<Rule[]> {

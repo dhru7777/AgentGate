@@ -31,6 +31,8 @@ export const explorerTxUrl = (tx: string) => `https://testnet.monadvision.com/tx
 export const explorerAddressUrl = (address: string) => `https://testnet.monadvision.com/address/${address}`;
 export const scan8004AgentUrl = (agentId: string | number) =>
   `https://testnet.8004scan.io/agents/monad-testnet/${agentId}`;
+export const quicknodeAgentUrl = (agentId: string | number) =>
+  `https://erc-8004.quicknode.com/agents/monad-testnet/${agentId}`;
 
 export const MONAD_CHAIN_PARAMS = {
   chainId: "0x279f",
