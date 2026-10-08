@@ -13,7 +13,7 @@ function backPlate(name: string, agentId: number | null) {
   ctx.lineWidth = 2;
   ctx.strokeRect(36, 36, canvas.width - 72, canvas.height - 72);
   ctx.fillStyle = "#f3efe8";
-  ctx.font = "600 54px Georgia, serif";
+  ctx.font = "600 54px Cormorant Garamond, Georgia, serif";
   ctx.textAlign = "center";
   const words = name.split(" ");
   words.forEach((word, index) => {

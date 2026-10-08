@@ -81,9 +81,9 @@ function Graphs({ summary }: { summary: Summary }) {
         <LineChart
           labels={labels}
           datasets={[
-            { label: "Requests", data: summary.series.map((row) => row.requests), borderColor: "#333" },
-            { label: "Human", data: summary.series.map((row) => row.human), borderColor: "#007acc" },
-            { label: "AI", data: summary.series.map((row) => row.ai), borderColor: "#c45c26" },
+            { label: "Requests", data: summary.series.map((row) => row.requests), borderColor: "#26221c" },
+            { label: "Human", data: summary.series.map((row) => row.human), borderColor: "#2f4a3a" },
+            { label: "AI", data: summary.series.map((row) => row.ai), borderColor: "#8c6d3a" },
           ]}
         />
       </div>
@@ -109,8 +109,8 @@ function Graphs({ summary }: { summary: Summary }) {
         <LineChart
           labels={labels}
           datasets={[
-            { label: "402 blocked", data: summary.series.map((row) => row.blocked), borderColor: "#c45c26" },
-            { label: "Paid", data: summary.series.map((row) => row.paid), borderColor: "#9bbc5a" },
+            { label: "402 blocked", data: summary.series.map((row) => row.blocked), borderColor: "#8a3a32" },
+            { label: "Paid", data: summary.series.map((row) => row.paid), borderColor: "#6f8466" },
           ]}
         />
       </div>
@@ -155,7 +155,7 @@ function Agents({ summary, view, onView }: { summary: Summary; view: AgentView; 
             <DoughnutChart
               labels={["Good", "Bad", "Paid"]}
               values={[summary.goodVisitors, summary.badVisitors, summary.paidVisitors]}
-              colors={["#10b981", "#ef4444", "#007acc"]}
+              colors={["#4f6b4a", "#8a3a32", "#2f4a3a"]}
             />
           </div>
           <h2>Good agents</h2>

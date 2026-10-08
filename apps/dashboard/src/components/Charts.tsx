@@ -2,8 +2,8 @@ import { Chart, registerables, type ChartConfiguration, type ChartDataset } from
 import { useEffect, useRef } from "react";
 
 Chart.register(...registerables);
-Chart.defaults.font.family = "Georgia, serif";
-Chart.defaults.color = "#555";
+Chart.defaults.font.family = "EB Garamond, Georgia, serif";
+Chart.defaults.color = "#5b5347";
 
 type LineSet = { label: string; data: number[]; borderColor: string };
 
@@ -64,7 +64,7 @@ export function DoughnutChart({
       datasets: [
         {
           data: values,
-          backgroundColor: colors ?? ["#007acc", "#333", "#c45c26", "#888", "#9bbc5a"],
+          backgroundColor: colors ?? ["#2f4a3a", "#26221c", "#8c6d3a", "#8a8071", "#6f8466"],
         },
       ],
     },
@@ -74,7 +74,7 @@ export function DoughnutChart({
 }
 
 export function BarChart({ labels, values }: { labels: string[]; values: number[] }) {
-  const dataset: ChartDataset<"bar"> = { label: "Requests", data: values, backgroundColor: "#007acc" };
+  const dataset: ChartDataset<"bar"> = { label: "Requests", data: values, backgroundColor: "#2f4a3a" };
   const ref = useChart({
     type: "bar",
     data: { labels, datasets: [dataset] },

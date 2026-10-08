@@ -187,6 +187,7 @@ export function App() {
               {item.label}
             </button>
           ))}
+          <a href="https://santboblabs.com">Santbob Labs</a>
         </nav>
       </header>
       {tab === "services" && !deckOpen && (
