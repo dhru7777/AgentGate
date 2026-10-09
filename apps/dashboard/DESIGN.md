@@ -27,7 +27,7 @@ value in CSS. Use `var(--token)`.
 | `--rule-soft` | `#e6dfd0` | Row dividers, table lines |
 | `--ink` | `#26221c` | Body text, headings, primary buttons |
 | `--ink-soft` | `#5b5347` | Secondary text, descriptions |
-| `--ink-faint` | `#8a8071` | Labels, captions, placeholders, disabled |
+| `--ink-faint` | `#726959` | Labels, captions, placeholders, disabled |
 | `--accent` | `#2f4a3a` | Links, active nav, focus, selected state |
 | `--accent-wash` | `#e4e9dd` | Background of active or selected items |
 | `--brass` | `#8c6d3a` | Secondary data series, small ornament |
@@ -83,6 +83,19 @@ tints because they depict third-party products.
 Series colours, in order: `#2f4a3a` green, `#26221c` ink, `#8c6d3a` brass, `#8a8071` grey, `#6f8466` sage.
 Semantic pairs: allowed `#4f6b4a`, blocked `#8a3a32`, human `#2f4a3a`, AI `#8c6d3a`.
 No gradients, no fills heavier than the line.
+
+## Homepage (santboblabs.com)
+
+The marketing homepage lives in its own repo (`~/santboblabs.com`, a single static
+`index.html`) and copies the `:root` tokens above. If a token changes here, change it there.
+
+- Same palette, faces and flat rules. Display size tops out at 6rem.
+- Structure is a ledger: heavy 1px `--ink` rules open each section, `--rule` and `--rule-soft` divide rows, roman numerals in `--brass` mark order.
+- Dark areas: the hero band and the closing contact band (`--deep`), the homepage counterpart of the dashboard's dark panels. Hero text uses `--on-dark` and `--on-dark-soft`; status tints on dark are the lighter `#a9c4a0` (paid), `#d9a866` (pending), `#d68f84` (blocked).
+- Hero centrepiece is a canvas globe: warm charcoal sphere, paper-coloured land dots, a muted sage atmosphere glow and a faint brass wash behind it. Agents are small robot icons (paper outline, brass eyes), connections are brass arcs, and each payment is a brass `$` coin travelling the arc, ending in a ripple and a floating `$amount`. Blocked requests draw a red-tinted arc that stops at an X.
+- Beneath the globe, the ledger table is driven by the same events: a row appears as `402` and settles to `Paid` or `Blocked`. Stats (agents, connections, USDC settled) count up from the same simulation.
+- Rotation is constant and slow (about 0.12 rad/s). The simulation is illustrative and labelled so. With `prefers-reduced-motion` the globe and ledger render a static frame.
+- Never state traction, customers or numbers that are not real. The status section lists only what is built and what is next.
 
 ## Motion
 
