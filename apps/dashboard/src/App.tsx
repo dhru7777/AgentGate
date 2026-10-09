@@ -3,7 +3,7 @@ import { defaultRules } from "./data";
 import { unlockOwnerAccount } from "./modules/mera/verifyService";
 import { blogIsVerified, fetchBlogAnalytics, fetchBlogRules, markBlogVerified, updateBlogRules } from "./modules/services/blogAnalytics";
 import { hideService, loadServices, nextServiceId, parseOrigin, saveUserServices } from "./modules/services/catalog";
-import type { AgentView, OwnerSession, Range, Rule, Service, ServiceView, Summary, Tab } from "./types";
+import type { AgentView, OwnerSession, Range, Rule, RuleMode, Service, ServiceView, Summary, Tab } from "./types";
 import { ServiceBoard } from "./screens/ServiceBoard";
 import { IdentityView } from "./views/IdentityView";
 import { InvoicesView } from "./views/InvoicesView";
@@ -127,25 +127,28 @@ export function App() {
 
   const listed = services.map((service) => (service.id === "blog" ? { ...service, verified: blogVerified } : service));
 
-  async function toggleRule(id: string, allowed: boolean) {
+  async function toggleRule(id: string, mode: RuleMode) {
+    const allowed = mode === "free";
+    const charge = mode === "charge";
+    const before = (rulesByService[serviceId] ?? []).find((rule) => rule.id === id);
     setRulesByService((current) => ({
       ...current,
-      [serviceId]: (current[serviceId] ?? []).map((rule) => (rule.id === id ? { ...rule, allowed } : rule)),
+      [serviceId]: (current[serviceId] ?? []).map((rule) => (rule.id === id ? { ...rule, allowed, charge } : rule)),
     }));
     if (serviceId !== "blog" || !blogVerified) return;
     try {
-      const rules = await updateBlogRules({ id, allowed });
+      const rules = await updateBlogRules({ id, allowed, charge });
       setRulesByService((current) => ({ ...current, blog: rules }));
     } catch (err) {
       setRulesByService((current) => ({
         ...current,
-        blog: (current.blog ?? []).map((rule) => (rule.id === id ? { ...rule, allowed: !allowed } : rule)),
+        blog: (current.blog ?? []).map((rule) => (rule.id === id ? { ...rule, allowed: before?.allowed ?? false, charge: before?.charge ?? false } : rule)),
       }));
       setLiveError(err instanceof Error ? err.message : "Could not save that permission.");
     }
   }
 
-  async function ruleAction(action: "allow_all" | "block_all_ai" | "reset") {
+  async function ruleAction(action: "allow_all" | "block_all_ai" | "charge_ai" | "reset") {
     if (serviceId === "blog" && blogVerified) {
       try {
         const rules = await updateBlogRules({ action: action === "reset" ? "reset_defaults" : action });
@@ -159,7 +162,16 @@ export function App() {
       const rules = current[serviceId] ?? defaultRules(serviceId);
       if (action === "reset") return { ...current, [serviceId]: defaultRules(serviceId) };
       if (action === "allow_all") {
-        return { ...current, [serviceId]: rules.map((rule) => ({ ...rule, allowed: true })) };
+        return { ...current, [serviceId]: rules.map((rule) => ({ ...rule, allowed: true, charge: false })) };
+      }
+      if (action === "charge_ai") {
+        return {
+          ...current,
+          [serviceId]: rules.map((rule) => {
+            const free = rule.category === "Search Engine" || rule.id === "feed_protection";
+            return { ...rule, allowed: free, charge: !free };
+          }),
+        };
       }
       return {
         ...current,

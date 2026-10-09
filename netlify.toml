@@ -15,6 +15,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/erc8004-feedback"
+  to = "/.netlify/functions/erc8004-feedback"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { BarChart, DoughnutChart, LineChart } from "../components/Charts";
 import { RequestMap } from "../components/RequestMap";
+import { Insights } from "./InsightsView";
 import { RULE_GROUPS } from "../data";
+import { findAnomalies, robotsTable } from "../modules/services/anomalies";
 import { hitsFor, robotsPreview, shortPath, summarize } from "../summarize";
-import type { AgentView, Range, Rule, Service, ServiceView, Summary } from "../types";
+import type { AgentView, Range, Rule, RuleMode, Service, ServiceView, Summary } from "../types";
 
 const fmt = (value: number) => value.toLocaleString();
 const money = (value: number) => `$${value.toFixed(2)}`;
@@ -70,6 +72,86 @@ function CountTable({ rows, a, b }: { rows: { name: string; count: number }[]; a
   );
 }
 
+function AgentAnomalies({ summary, rules }: { summary: Summary; rules: Rule[] }) {
+  const anomalies = useMemo(() => findAnomalies(summary.recent, rules), [summary.recent, rules]);
+  const robots = useMemo(() => robotsTable(summary.recent, rules), [summary.recent, rules]);
+  const served = anomalies.filter((row) => row.kind === "disallowed-served").length;
+  const blocked = anomalies.filter((row) => row.kind === "allowed-blocked").length;
+  const robotsSeen = robots.reduce((sum, row) => sum + row.robotsFetches, 0);
+  return (
+    <>
+      {anomalies.length > 0 && (
+        <p className="anomaly-alert" role="status">
+          {anomalies.length} {anomalies.length === 1 ? "anomaly" : "anomalies"} in this range.
+          A disallowed bot received a page, or an allowed bot was blocked.
+        </p>
+      )}
+      <h2>Anomalies</h2>
+      <div className="obs-chart obs-chart-sm">
+        <BarChart labels={["Disallowed, page sent", "Allowed, blocked"]} values={[served, blocked]} />
+      </div>
+      {anomalies.length === 0 ? (
+        <p className="obs-empty">No anomaly in the stored events.</p>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Bot</th>
+                <th>Purpose</th>
+                <th>Path</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {anomalies.map((row) => (
+                <tr key={row.id}>
+                  <td>{new Date(row.ts).toLocaleString()}</td>
+                  <td>{row.agent}</td>
+                  <td>{row.purpose}</td>
+                  <td title={row.path}>{shortPath(row.path)}</td>
+                  <td>{row.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <h2>robots.txt</h2>
+      <p className="obs-lead">
+        {robotsSeen === 0
+          ? "No robots.txt fetch is in this log. A fetch would show here as its own event, marked allowed or disallowed."
+          : `${fmt(robotsSeen)} robots.txt ${robotsSeen === 1 ? "fetch is" : "fetches are"} in this log.`}
+      </p>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Bot</th>
+              <th>Rule</th>
+              <th>Purpose</th>
+              <th>robots.txt</th>
+              <th>Other requests</th>
+            </tr>
+          </thead>
+          <tbody>
+            {robots.map((row) => (
+              <tr key={row.id}>
+                <td>{row.name}</td>
+                <td>{row.access}</td>
+                <td>{row.purpose}</td>
+                <td>{row.robotsFetches === 0 ? "not recorded" : fmt(row.robotsFetches)}</td>
+                <td>{fmt(row.pageRequests)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
 function Graphs({ summary }: { summary: Summary }) {
   const labels = summary.series.map((row) => row.t);
   return (
@@ -118,7 +200,7 @@ function Graphs({ summary }: { summary: Summary }) {
   );
 }
 
-function Agents({ summary, view, onView }: { summary: Summary; view: AgentView; onView: (view: AgentView) => void }) {
+function Agents({ summary, rules, view, onView }: { summary: Summary; rules: Rule[]; view: AgentView; onView: (view: AgentView) => void }) {
   const tabs: { id: AgentView; label: string }[] = [
     { id: "all", label: "All Agents" },
     { id: "compare", label: "Good vs Bad Agents" },
@@ -128,6 +210,7 @@ function Agents({ summary, view, onView }: { summary: Summary; view: AgentView; 
   ];
   return (
     <>
+      <AgentAnomalies summary={summary} rules={rules} />
       <div className="obs-highlights">
         <div>
           <span>Top agent</span>
@@ -328,8 +411,8 @@ function Permissions({
   rules: Rule[];
   summary: Summary;
   origin: string;
-  onToggle: (id: string, allowed: boolean) => void;
-  onAction: (action: "allow_all" | "block_all_ai" | "reset") => void;
+  onToggle: (id: string, mode: RuleMode) => void;
+  onAction: (action: "allow_all" | "block_all_ai" | "charge_ai" | "reset") => void;
 }) {
   const [toast, setToast] = useState("");
   const preview = useMemo(() => robotsPreview(rules, origin), [rules, origin]);
@@ -341,12 +424,10 @@ function Permissions({
 
   return (
     <>
-      <p className="obs-lead">
-        On means the agent reads for free. Off means HTTP 402. Each assistant is keyed by its ERC-8004 id when one is registered. A name with no id stays claimed, never verified.
-      </p>
       <div className="obs-perm-actions">
         <button type="button" className="obs-btn-sm" onClick={() => { onAction("allow_all"); flash("All allowed"); }}>Allow all</button>
-        <button type="button" className="obs-btn-sm" onClick={() => { onAction("block_all_ai"); flash("AI gated"); }}>Gate AI</button>
+        <button type="button" className="obs-btn-sm" onClick={() => { onAction("charge_ai"); flash("AI set to charge"); }}>Charge AI</button>
+        <button type="button" className="obs-btn-sm" onClick={() => { onAction("block_all_ai"); flash("AI blocked"); }}>Block AI</button>
         <button type="button" className="obs-btn-sm" onClick={() => { onAction("reset"); flash("Reset"); }}>Reset</button>
         {toast && <span className="obs-toast">{toast}</span>}
       </div>
@@ -366,18 +447,25 @@ function Permissions({
                     {hits > 0 && <span className="obs-rule-hits">{fmt(hits)} hits</span>}
                   </div>
                   <div className="obs-rule-right">
-                    <span className={`obs-rule-status ${rule.allowed ? "is-allowed" : "is-gated"}`}>{rule.allowed ? "On" : "Off"}</span>
-                    <label className="obs-switch">
-                      <input
-                        type="checkbox"
-                        checked={rule.allowed}
-                        onChange={(event) => {
-                          onToggle(rule.id, event.target.checked);
-                          flash(`${rule.name}: ${event.target.checked ? "free" : "gated"}`);
-                        }}
-                      />
-                      <span className="obs-slider" />
-                    </label>
+                    <div className="obs-mode" role="group" aria-label={`${rule.name} access`}>
+                      {(["free", "charge", "block"] as RuleMode[]).map((mode) => {
+                        const current: RuleMode = rule.allowed ? "free" : rule.charge ? "charge" : "block";
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            className={`obs-mode-btn is-${mode}${current === mode ? " is-active" : ""}`}
+                            onClick={() => {
+                              if (current === mode) return;
+                              onToggle(rule.id, mode);
+                              flash(`${rule.name}: ${mode}`);
+                            }}
+                          >
+                            {mode === "free" ? "Free" : mode === "charge" ? "Charge" : "Block"}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               );
@@ -421,8 +509,8 @@ export function ServicesView({
   range: Range;
   onRange: (range: Range) => void;
   rules: Rule[];
-  onToggle: (id: string, allowed: boolean) => void;
-  onAction: (action: "allow_all" | "block_all_ai" | "reset") => void;
+  onToggle: (id: string, mode: RuleMode) => void;
+  onAction: (action: "allow_all" | "block_all_ai" | "charge_ai" | "reset") => void;
   liveSummary: Summary | null;
   liveLoading: boolean;
   liveError: string;
@@ -437,6 +525,7 @@ export function ServicesView({
   if (!service) return null;
   const titles: Record<ServiceView, string> = {
     graphs: "Observability",
+    insights: "Insights",
     agents: "Agents",
     pages: "Pages",
     events: "Events",
@@ -444,6 +533,7 @@ export function ServicesView({
   };
   const nav: { id: ServiceView; label: string }[] = [
     { id: "graphs", label: "Graphs" },
+    { id: "insights", label: "Insights" },
     { id: "agents", label: "Agents" },
     { id: "pages", label: "Pages" },
     { id: "events", label: "Events" },
@@ -512,11 +602,6 @@ export function ServicesView({
         <div className="obs-top">
           <div>
             <h1>{titles[view]}</h1>
-            <p className="obs-meta">
-              {live
-                ? `${service.origin}/analytics · live · last request ${summary.recent[0] ? new Date(summary.recent[0].ts).toLocaleString() : "none"}`
-                : `${service.origin} · verified with your passkey`}
-            </p>
           </div>
           <div className="obs-filters">
             {([
@@ -531,7 +616,8 @@ export function ServicesView({
           </div>
         </div>
         {view === "graphs" && <Graphs summary={summary} />}
-        {view === "agents" && <Agents summary={summary} view={agentView} onView={onAgentView} />}
+        {view === "insights" && <Insights summary={summary} rules={rules} />}
+        {view === "agents" && <Agents summary={summary} rules={rules} view={agentView} onView={onAgentView} />}
         {view === "pages" && <Pages summary={summary} />}
         {view === "events" && <Events summary={summary} />}
         {view === "permissions" && (
