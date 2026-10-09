@@ -1,0 +1,8 @@
+{
+  "name": "@agentgate/maplelabs-bot",
+  "private": true,
+  "type": "module",
+  "description": "MapleLabsBot: a test crawler with Search, Train and User search modes, and a split-screen demo of what it does and what the site sees.",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server.mjs" }
+}
