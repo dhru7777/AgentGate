@@ -79,6 +79,21 @@ function formatFixed(value: bigint, decimals: number): string {
   return negative ? `-${text}` : text;
 }
 
+export type ScanNote = {
+  index: number;
+  tag1: string;
+  tag2: string;
+  value: string;
+  reasoning: string;
+};
+
+export async function fetchScanFeedback(agentId: number): Promise<ScanNote[]> {
+  const response = await fetch(`/api/erc8004-feedback?agentId=${agentId}`);
+  const body = (await response.json()) as { notes?: ScanNote[]; error?: string };
+  if (!response.ok) throw new Error(body.error || "Could not read 8004scan feedback.");
+  return body.notes ?? [];
+}
+
 export async function readAgentReputation(agentId: number): Promise<AgentReputation> {
   const chain = client();
   const clients = await chain.readContract({

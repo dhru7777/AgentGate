@@ -1,6 +1,6 @@
 export type Range = "day" | "week" | "month";
 
-export type ServiceView = "graphs" | "agents" | "pages" | "events" | "permissions";
+export type ServiceView = "graphs" | "insights" | "agents" | "pages" | "events" | "permissions";
 
 export type AgentView = "all" | "compare" | "good" | "bad" | "paid";
 
@@ -38,16 +38,27 @@ export type Visit = {
   amountUsdc: number;
   /** Milliseconds on the site for this visit. Null when a single request is all we saw. */
   durationMs: number | null;
+  /** Added by the updated gate. Absent on older rows. */
+  purpose?: string;
+  ref?: string;
+  robots?: string;
+  vid?: string;
+  ua?: string;
 };
 
 export type Rule = {
   id: string;
   name: string;
   category: string;
+  /** Free: read without paying. */
   allowed: boolean;
+  /** Charge: robots.txt lets the bot in, the gate answers posts with HTTP 402 until it pays. */
+  charge?: boolean;
   patterns: string;
   agentId: number | null;
 };
+
+export type RuleMode = "free" | "charge" | "block";
 
 export type Identity = {
   agentId: number | null;

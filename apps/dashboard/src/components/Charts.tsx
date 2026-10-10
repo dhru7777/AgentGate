@@ -88,3 +88,79 @@ export function BarChart({ labels, values }: { labels: string[]; values: number[
   });
   return <canvas ref={ref} />;
 }
+
+export function StackedBarChart({
+  labels,
+  series,
+}: {
+  labels: string[];
+  series: { label: string; data: number[]; color: string }[];
+}) {
+  const ref = useChart({
+    type: "bar",
+    data: {
+      labels,
+      datasets: series.map((set) => ({ label: set.label, data: set.data, backgroundColor: set.color })),
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom" } },
+      scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }, y: { stacked: true } },
+    },
+  });
+  return <canvas ref={ref} />;
+}
+
+export type TimelinePoint = { x: number; y: number; group: string; tip: string[]; blocked: boolean };
+
+/** One dot per request. Time runs left to right, one row per agent. Hover a dot for the details. */
+export function TimelineChart({
+  agents,
+  points,
+  groups,
+}: {
+  agents: string[];
+  points: TimelinePoint[];
+  groups: { id: string; label: string; color: string }[];
+}) {
+  const ref = useChart({
+    type: "scatter",
+    data: {
+      datasets: groups.map((group) => ({
+        label: group.label,
+        backgroundColor: group.color,
+        borderColor: group.color,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        pointStyle: (context: { raw?: unknown }) => ((context.raw as TimelinePoint | undefined)?.blocked ? "rectRot" : "circle"),
+        data: points.filter((point) => point.group === group.id),
+      })) as never,
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: { callbacks: { label: (item) => (item.raw as TimelinePoint).tip } },
+      },
+      scales: {
+        x: {
+          type: "linear",
+          ticks: {
+            maxTicksLimit: 8,
+            callback: (value) => new Date(Number(value)).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric" }),
+          },
+        },
+        y: {
+          min: -1,
+          max: agents.length,
+          ticks: { stepSize: 1, autoSkip: false, callback: (value) => (Number.isInteger(Number(value)) ? agents[Number(value)] ?? "" : "") },
+          grid: { display: false },
+        },
+      },
+    },
+  });
+  return <canvas ref={ref} />;
+}

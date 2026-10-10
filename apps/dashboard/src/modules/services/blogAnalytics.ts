@@ -53,6 +53,11 @@ type LivePayload = {
     country?: string;
     city?: string;
     durationMs?: number;
+    purpose?: string;
+    ref?: string;
+    robots?: string;
+    vid?: string;
+    ua?: string;
   }[];
   updatedAt?: string;
   since?: string;
@@ -132,7 +137,74 @@ function withTimeSpent(visits: Visit[]): Visit[] {
   return visits.map((visit, index) => ({ ...visit, durationMs: durationMs[index] }));
 }
 
-function toSummary(data: LivePayload): Summary {
+
+/** The owner's own test traffic (Austin, Cursor). Left out of every number the dashboard shows. */
+export const TEST_TRAFFIC_NOTE = "test traffic from Austin and Cursor excluded";
+
+type LiveRow = LivePayload["recent"][number];
+
+function isTestRow(row: LiveRow): boolean {
+  return (row.city ?? "").toLowerCase() === "austin" || row.agent === "Cursor";
+}
+
+function pageKey(path: string): string {
+  const clean = path.toLowerCase().replace(/\.html$/, "");
+  return clean.length > 1 ? clean.replace(/\/$/, "") : clean;
+}
+
+function dropCounts(list: { name: string; count: number }[], remove: Map<string, number>): { name: string; count: number }[] {
+  return list
+    .filter((item) => item.name !== "Cursor")
+    .map((item) => ({ ...item, count: item.count - (remove.get(item.name) ?? 0) }))
+    .filter((item) => item.count > 0);
+}
+
+/** Totals come from the server, so test rows are subtracted from them using the rows we can see. */
+function withoutTestTraffic(data: LivePayload): LivePayload {
+  const test = data.recent.filter(isTestRow);
+  if (test.length === 0) return { ...data, topAgents: dropCounts(data.topAgents, new Map()) };
+  const byAgent = new Map<string, number>();
+  const byPage = new Map<string, number>();
+  const byDay = new Map<string, { requests: number; human: number; ai: number }>();
+  for (const row of test) {
+    byAgent.set(row.agent, (byAgent.get(row.agent) ?? 0) + 1);
+    byPage.set(pageKey(row.path), (byPage.get(pageKey(row.path)) ?? 0) + 1);
+    const day = row.ts.slice(0, 10);
+    const entry = byDay.get(day) ?? { requests: 0, human: 0, ai: 0 };
+    entry.requests += 1;
+    if (row.kind === "human") entry.human += 1;
+    if (row.kind === "ai_agent") entry.ai += 1;
+    byDay.set(day, entry);
+  }
+  const count = (match: (row: LiveRow) => boolean) => test.filter(match).length;
+  const isPost = (row: LiveRow) => /^\/\d{4}\/\d{2}\/\d{2}\//.test(row.path);
+  return {
+    ...data,
+    totalRequests: Math.max(0, data.totalRequests - test.length),
+    aiAgentRequests: Math.max(0, data.aiAgentRequests - count((row) => row.kind === "ai_agent")),
+    humanRequests: Math.max(0, data.humanRequests - count((row) => row.kind === "human")),
+    blogRequests: Math.max(0, data.blogRequests - count(isPost)),
+    paymentRequired: Math.max(0, data.paymentRequired - count((row) => row.status === 402)),
+    topAgents: dropCounts(data.topAgents, byAgent),
+    goodAgents: dropCounts(data.goodAgents, new Map()),
+    badAgents: dropCounts(data.badAgents, new Map()),
+    paidAgents: dropCounts(data.paidAgents, new Map()),
+    topPages: data.topPages
+      .map((page) => ({ ...page, count: page.count - (byPage.get(pageKey(page.name)) ?? 0) }))
+      .filter((page) => page.count > 0),
+    places: data.places.filter((place) => place.city.toLowerCase() !== "austin"),
+    series: data.series.map((row) => {
+      const gone = byDay.get(row.t);
+      return gone
+        ? { ...row, requests: Math.max(0, row.requests - gone.requests), human: Math.max(0, row.human - gone.human), ai: Math.max(0, row.ai - gone.ai) }
+        : row;
+    }),
+    recent: data.recent.filter((row) => !isTestRow(row)),
+  };
+}
+
+function toSummary(raw: LivePayload): Summary {
+  const data = withoutTestTraffic(raw);
   const recent = withTimeSpent(
     data.recent.map((row, index) => ({
       id: `${row.ts}-${index}`,
@@ -150,6 +222,11 @@ function toSummary(data: LivePayload): Summary {
       lon: row.lon ?? 0,
       amountUsdc: 0,
       durationMs: measuredDuration(row.durationMs),
+      purpose: row.purpose,
+      ref: row.ref,
+      robots: row.robots,
+      vid: row.vid,
+      ua: row.ua,
     })),
   );
   const status = new Map<string, number>();
@@ -207,7 +284,7 @@ export async function fetchBlogAnalytics(range: Range): Promise<Summary> {
 
 /** Request rows the blog still has for this period. Invoices are built from these, not from sample visits. */
 export async function fetchBlogAccessLog(range: Range): Promise<BlogAccessLog> {
-  const data = await readJson<LivePayload>(`/api/analytics?range=${range}`);
+  const data = withoutTestTraffic(await readJson<LivePayload>(`/api/analytics?range=${range}`));
   return {
     since: data.since ?? "",
     updatedAt: data.updatedAt ?? "",
@@ -232,12 +309,13 @@ export async function fetchBlogRules(): Promise<Rule[]> {
     name: rule.name,
     category: rule.category,
     allowed: rule.allowed,
+    charge: rule.charge === true && !rule.allowed,
     patterns: rule.patterns ?? "",
     agentId: known.get(rule.id) ?? null,
   }));
 }
 
-export async function updateBlogRules(body: { id: string; allowed: boolean } | { action: string }): Promise<Rule[]> {
+export async function updateBlogRules(body: { id: string; allowed: boolean; charge?: boolean } | { action: string }): Promise<Rule[]> {
   const data = await readJson<{ rules: Rule[] }>("/api/bot-rules", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-admin-key": accessKey() },
@@ -246,6 +324,7 @@ export async function updateBlogRules(body: { id: string; allowed: boolean } | {
   const known = new Map(defaultRules("blog").map((rule) => [rule.id, rule.agentId]));
   return data.rules.map((rule) => ({
     ...rule,
+    charge: rule.charge === true && !rule.allowed,
     patterns: rule.patterns ?? "",
     agentId: known.get(rule.id) ?? rule.agentId ?? null,
   }));

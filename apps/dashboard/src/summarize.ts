@@ -146,8 +146,9 @@ export function hitsFor(patterns: string, visits: Visit[]): number {
   return visits.filter((visit) => parts.some((part) => visit.agent.toLowerCase().includes(part))).length;
 }
 
-export function robotsPreview(rules: { name: string; allowed: boolean; patterns: string }[], origin: string): string {
+export function robotsPreview(rules: { name: string; allowed: boolean; charge?: boolean; patterns: string }[], origin: string): string {
   const allowed: string[] = [];
+  const charged: string[] = [];
   const blocked: string[] = [];
   for (const rule of rules) {
     if (!rule.patterns) continue;
@@ -155,10 +156,11 @@ export function robotsPreview(rules: { name: string; allowed: boolean; patterns:
       const trimmed = pattern.trim();
       if (!trimmed) continue;
       const name = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-      const block = `User-agent: ${name}\n${rule.allowed ? "Allow" : "Disallow"}: /`;
+      const block = `User-agent: ${name}\n${rule.allowed || rule.charge ? "Allow" : "Disallow"}: /`;
       if (rule.allowed) allowed.push(block);
+      else if (rule.charge) charged.push(block);
       else blocked.push(block);
     }
   }
-  return `# AgentLedger\nUser-agent: *\nAllow: /\n\n${allowed.join("\n\n")}\n\n${blocked.join("\n\n")}\n\nSitemap: ${origin}/sitemap.xml`;
+  return `# AgentLedger\nUser-agent: *\nAllow: /\n\n${allowed.join("\n\n")}\n\n# Charged: allowed in, posts answer 402 until paid\n${charged.join("\n\n")}\n\n${blocked.join("\n\n")}\n\nSitemap: ${origin}/sitemap.xml`;
 }

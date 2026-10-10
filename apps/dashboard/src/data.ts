@@ -54,11 +54,12 @@ const BASE_RULES: Rule[] = [
   { id: "bytedance", name: "ByteDance (Bytespider)", category: "AI Training", allowed: false, patterns: "bytespider", agentId: null },
   { id: "aggregators", name: "Aggregators (CCBot / Diffbot)", category: "Data Aggregators", allowed: false, patterns: "ccbot,diffbot,amazonbot,youbot", agentId: null },
   { id: "bing", name: "Bing Search (Bingbot)", category: "Search Engine", allowed: true, patterns: "bingbot", agentId: null },
+  { id: "maplelabs", name: "MapleLabsBot", category: "AI Assistant", allowed: false, charge: true, patterns: "maplelabsbot", agentId: null },
   { id: "feed_protection", name: "Feed Protection (/feed.xml)", category: "RSS Protection", allowed: true, patterns: "", agentId: null },
 ];
 
 export const RULE_GROUPS = [
-  { title: "Assistants", ids: ["anthropic", "openai", "perplexity", "apple"] },
+  { title: "Assistants", ids: ["anthropic", "openai", "perplexity", "apple", "maplelabs"] },
   { title: "Training", ids: ["google_ai", "meta", "bytedance", "aggregators", "cohere"] },
   { title: "Search", ids: ["google_search", "bing"] },
   { title: "Feed", ids: ["feed_protection"] },
