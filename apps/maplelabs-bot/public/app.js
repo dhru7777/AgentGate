@@ -334,6 +334,10 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
     }
   }
   setRunning(false); pollLog();
+  // Each step is logged to the blog in the background, after its response already
+  // went out - polling once right when the run ends can race ahead of the last
+  // write and show one row short. A second poll a moment later catches it.
+  setTimeout(pollLog, 1800);
 }
 
 async function pollLog() {
