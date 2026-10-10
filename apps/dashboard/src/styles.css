@@ -129,6 +129,9 @@ button, input, select { font-family: inherit; }
 
 .obs-meta, .obs-lead, .obs-empty { color: #666; font-size: 0.95rem; }
 
+.obs-gap-note { margin: 12px 0 20px; padding: 12px 14px; border: 1px solid #eee; border-radius: 8px; background: #fafafa; }
+.obs-gap-note .obs-empty { margin: 0 0 10px; }
+
 .obs-filters { display: flex; gap: 4px; }
 
 .obs-filters button, .obs-subtabs button, .obs-page, .obs-btn-sm, .ledger-form input, .ledger-form select, .ledger-select select, .obs-event-filters select, .obs-event-filters input, .service-add input {

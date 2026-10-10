@@ -309,6 +309,14 @@ function Pages({ summary }: { summary: Summary }) {
   );
 }
 
+// The Oct 10 test-traffic flood (6,250 requests in ~90 minutes) drowns out everything
+// else in this list. Hidden here only; other tabs (charts, totals) still see it.
+const FLOOD_DAY = "2026-10-10";
+// Individual request rows for this range were evicted before the flood was caught
+// (confirmed unrecoverable). Only the daily totals in summary.series survived.
+// summary.series labels are pre-formatted ("Oct 3") with no year, so matched literally.
+const GAP_DAY_LABELS = new Set(["Oct 3", "Oct 4", "Oct 5", "Oct 6", "Oct 7", "Oct 8", "Oct 9"]);
+
 function Events({ summary }: { summary: Summary }) {
   const [kind, setKind] = useState("all");
   const [agent, setAgent] = useState("all");
@@ -316,11 +324,12 @@ function Events({ summary }: { summary: Summary }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 8;
-  const kinds = [...new Set(summary.recent.map((event) => event.kind))].sort();
-  const agents = [...new Set(summary.recent.map((event) => event.agent))].sort();
-  const statuses = [...new Set(summary.recent.map((event) => String(event.status)))].sort();
+  const visible = summary.recent.filter((event) => !event.ts.startsWith(FLOOD_DAY));
+  const kinds = [...new Set(visible.map((event) => event.kind))].sort();
+  const agents = [...new Set(visible.map((event) => event.agent))].sort();
+  const statuses = [...new Set(visible.map((event) => String(event.status)))].sort();
   const q = query.toLowerCase().trim();
-  const filtered = summary.recent.filter((event) => {
+  const filtered = visible.filter((event) => {
     if (kind !== "all" && event.kind !== kind) return false;
     if (agent !== "all" && event.agent !== agent) return false;
     if (status !== "all" && String(event.status) !== status) return false;
@@ -331,10 +340,35 @@ function Events({ summary }: { summary: Summary }) {
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const current = Math.min(page, pages);
   const rows = filtered.slice((current - 1) * pageSize, current * pageSize);
+  const gapDays = summary.series.filter((row) => GAP_DAY_LABELS.has(row.t));
 
   return (
     <>
-      <p className="obs-lead">{fmt(filtered.length)} of {fmt(summary.recent.length)} requests.</p>
+      <p className="obs-lead">{fmt(filtered.length)} of {fmt(visible.length)} requests. Oct 10's test-traffic flood (6,250 requests) is hidden from this list.</p>
+      {gapDays.length > 0 && (
+        <div className="obs-gap-note">
+          <p className="obs-empty">
+            No individual request rows survive for Oct 3–9 (evicted before the flood was caught). Daily totals for that window:
+          </p>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Day</th><th>Requests</th><th>Human</th><th>AI</th></tr>
+              </thead>
+              <tbody>
+                {gapDays.map((row) => (
+                  <tr key={row.t}>
+                    <td>{row.t}</td>
+                    <td>{fmt(row.requests)}</td>
+                    <td>{fmt(row.human)}</td>
+                    <td>{fmt(row.ai)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       <div className="obs-event-filters">
         <label>
           Kind
