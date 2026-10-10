@@ -375,8 +375,11 @@ function Events({ summary }: { summary: Summary }) {
       {gapDays.length > 0 && (
         <div className="obs-gap-note">
           <p className="obs-empty">
-            No individual request rows survive for Oct 3–9 (evicted before the flood was caught). Daily totals for that window:
+            No individual request rows survive for Oct 3–9 (evicted before the flood was caught), {fmt(gapDays.reduce((sum, row) => sum + row.requests, 0))} requests total. Daily totals for that window:
           </p>
+          <div className="obs-chart">
+            <BarChart labels={gapDays.map((row) => row.t)} values={gapDays.map((row) => row.requests)} />
+          </div>
           <div className="table-wrap">
             <table>
               <thead>
