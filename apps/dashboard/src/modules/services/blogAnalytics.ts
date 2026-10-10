@@ -144,7 +144,8 @@ export const TEST_TRAFFIC_NOTE = "test traffic from Austin and Cursor excluded";
 type LiveRow = LivePayload["recent"][number];
 
 function isTestRow(row: LiveRow): boolean {
-  return (row.city ?? "").toLowerCase() === "austin" || row.agent === "Cursor";
+  // Austin and Cursor are the owner's own testing. The "verify" probes are the demo checking that a policy change is live.
+  return (row.city ?? "").toLowerCase() === "austin" || row.agent === "Cursor" || /maplelabsbot-verify/i.test(row.ua ?? "");
 }
 
 function pageKey(path: string): string {
