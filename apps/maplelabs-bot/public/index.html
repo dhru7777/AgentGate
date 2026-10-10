@@ -20,6 +20,8 @@
         <div class="kv"><span>Address</span><strong id="buyerAddr">not configured</strong></div>
         <div class="kv"><span>USDC</span><strong id="buyerUsdc">–</strong></div>
         <div class="kv"><span>MON (gas)</span><strong id="buyerMon">–</strong></div>
+        <div class="tx-h">Last 3</div>
+        <div class="tx-list" id="buyerTx"></div>
         <a class="pop-link" id="buyerExplorer" href="#" target="_blank" rel="noreferrer" hidden>View on MonadVision ↗</a>
       </div>
     </div>
@@ -39,6 +41,8 @@
         <div class="kv"><span>Address</span><strong id="sellerAddr">…</strong></div>
         <div class="kv"><span>USDC</span><strong id="sellerUsdc">–</strong></div>
         <div class="kv"><span>MON (gas)</span><strong id="sellerMon">–</strong></div>
+        <div class="tx-h">Last 3</div>
+        <div class="tx-list" id="sellerTx"></div>
         <a class="pop-link" id="sellerExplorer" href="#" target="_blank" rel="noreferrer" hidden>View on MonadVision ↗</a>
       </div>
     </div>
@@ -61,6 +65,8 @@
     <div class="view view-search">
       <div class="thread" id="thread"></div>
       <form class="composer" id="form">
+        <div class="field-label">Pay per use</div>
+        <div class="bundles" id="searchPay"></div>
         <div class="brain-row"><span class="brain-label">Answered by</span><div class="brains" id="brains"></div></div>
         <div class="row">
           <input id="q" autocomplete="off" placeholder="Ask it something about the blog..." required>
@@ -89,12 +95,29 @@
         <button class="max-btn" data-pane="gate" type="button" aria-label="Maximize this pane">⤢</button>
       </div>
       <div class="scroller">
-        <div class="card">
-          <div class="card-h">Policy for MapleLabsBot</div>
-          <div class="seg" id="policy">
-            <button data-mode="free">Free</button><button data-mode="charge">Charge</button><button data-mode="block">Block</button>
+        <div class="card flipcard" id="flipCard" data-side="globe">
+          <div class="flip-inner">
+            <div class="face front">
+              <div class="globe-overlay">
+                <div class="seg seg-sm" id="globeMode">
+                  <button data-view="3d" type="button" aria-label="3D globe">3D</button><button data-view="2d" type="button" aria-label="2D map">2D</button>
+                </div>
+                <button class="flip-btn flip-btn-ghost" type="button" data-flip aria-label="Show policy and details">Info &#8635;</button>
+              </div>
+              <div class="globe-stage" id="globeStage"></div>
+              <div class="globe-stage-2d" id="globeStage2d" hidden></div>
+            </div>
+            <div class="face back">
+              <div class="card-h">Traffic <span class="muted">drag to spin on the globe</span>
+                <button class="flip-btn" type="button" data-flip aria-label="Show globe">Globe &#8635;</button></div>
+              <p class="hint">Each dot is a real request, placed where the blog saw it from. <span class="pill s402">Red</span> is payment required (402); if that same visitor goes on to pay, its dot turns <span class="pill s200">green</span>. Only the newest request glows.</p>
+              <div class="card-h">Policy for MapleLabsBot</div>
+              <div class="seg" id="policy">
+                <button data-mode="free">Free</button><button data-mode="charge">Charge</button><button data-mode="block">Block</button>
+              </div>
+              <div class="hint" id="policyHint"></div>
+            </div>
           </div>
-          <div class="hint" id="policyHint"></div>
         </div>
         <div class="card">
           <div class="card-h">This request <span class="muted">4 checks, in order, every time</span></div>
@@ -123,6 +146,8 @@
     </div>
   </section>
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/globe.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

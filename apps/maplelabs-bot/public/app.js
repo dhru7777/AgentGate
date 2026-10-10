@@ -25,6 +25,7 @@ async function init() {
   state.brains = cfg.brains;
   state.prices = cfg.prices;
   state.canControl = cfg.canControl;
+  state.canPay = cfg.canPay;
   state.requiresPolicyKey = cfg.requiresPolicyKey;
 
   $("#site").textContent = cfg.site.replace("https://", "");
@@ -60,6 +61,8 @@ async function init() {
     .join("");
   $("#bundles").addEventListener("click", (e) => { const b = e.target.closest(".bundle-opt"); if (b) setBundle(b.dataset.bundle); });
   setBundle("starter");
+  const page = Number(cfg.prices.search.perPage).toFixed(2);
+  $("#searchPay").innerHTML = `<button class="bundle-opt on" type="button"><b>Pay per use</b><span>$${page} USDC · one page</span></button>`;
 
   $("#form").addEventListener("submit", (e) => { e.preventDefault(); send(); });
   $("#trainForm").addEventListener("submit", (e) => { e.preventDefault(); train(); });
@@ -120,45 +123,81 @@ function initWallets(wallets) {
   setInterval(pollWallets, 15000);
 }
 
+function paintTx(id, txs) {
+  const el = $(`#${id}`);
+  if (!el) return;
+  if (!txs || !txs.length) {
+    el.innerHTML = `<div class="tx-empty">No USDC transfers yet</div>`;
+    return;
+  }
+  el.innerHTML = txs.map((t) => `<a class="tx" href="${esc(t.explorer)}" target="_blank" rel="noreferrer"><span>${t.direction === "out" ? "sent" : "received"} ${esc(t.amount)} USDC</span><span>${esc(t.hash.slice(0, 6))}…${esc(t.hash.slice(-4))}</span></a>`).join("");
+}
+
 async function pollWallets() {
   try {
     const { buyer, seller } = await (await fetch("/api/wallets")).json();
-    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; }
-    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; }
+    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; paintTx("buyerTx", buyer.txs); }
+    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; paintTx("sellerTx", seller.txs); }
   } catch { /* balances are a nice-to-have, ignore failures */ }
 }
 
-// A 402 shows this card before anything about money happens. Approve only reveals the exact
-// command to run in your own terminal, it never sends anything itself, no key ever touches
-// this page. Decline just closes it out.
-function approvalCardHtml(ev) {
+function fixedQuote() {
+  if (state.mode === "train") {
+    const tier = (state.prices.train && state.prices.train[state.bundle]) || { usd: 0.15, label: "Starter bundle" };
+    return { amount: Number(tier.usd).toFixed(2), label: tier.label };
+  }
+  const page = state.prices.search ? state.prices.search.perPage : 0.01;
+  return { amount: Number(page).toFixed(2), label: "Pay per use" };
+}
+
+// A 402 shows this card before any USDC moves. Approve asks the server to send that
+// amount on Monad from the buyer wallet to the configured seller. The key never
+// reaches this page. Decline sends nothing.
+function approvalCardHtml() {
   const id = `ap${++state.approveId}`;
-  const amount = (ev.price || "").match(/[\d.]+/)?.[0] || "";
-  const to = ev.payTo || (state.wallets && state.wallets.seller) || "";
+  const quote = fixedQuote();
+  const to = (state.wallets && state.wallets.seller) || "";
+  const ready = state.canPay ? "" : `<div class="approve-note">The server has no buyer key yet, so Approve cannot send.</div>`;
   return `<div class="approve-card" id="${id}">
-    <b>Pay this, or not?</b> A human has to say yes before anything moves.
-    <div class="muted">${amount ? `${esc(amount)} USDC` : "amount unknown"} to ${short(to)}</div>
+    <b>HTTP 402</b> A human has to say yes before anything moves.
+    <div class="muted">${esc(quote.label)} · ${esc(quote.amount)} USDC on Monad to ${short(to)}</div>
+    ${ready}
     <div class="approve-row">
-      <button class="approve-yes" onclick="approvePay('${id}','${esc(amount)}','${esc(to)}')">Approve</button>
+      <button class="approve-yes" onclick="approvePay('${id}','${esc(quote.amount)}')">Approve</button>
       <button class="approve-no" onclick="declinePay('${id}')">Decline</button>
     </div>
   </div>`;
 }
 
-window.approvePay = (id, amount, to) => {
+window.approvePay = async (id, amount) => {
   const card = document.getElementById(id);
-  if (!card) return;
+  if (!card || card.dataset.sending === "1") return;
+  card.dataset.sending = "1";
   card.classList.add("resolved");
-  card.querySelector("b").textContent = "Approved, waiting on you";
-  const btns = [$("#buyerBtn"), $("#sellerBtn")];
+  card.querySelector("b").textContent = "Sending USDC on Monad…";
+  const btns = [$("#buyerBtn"), $("#sellerBtn")].filter(Boolean);
   btns.forEach((b) => b.classList.add("flash"));
   setTimeout(() => btns.forEach((b) => b.classList.remove("flash")), 2000);
-  if (!amount || !to) {
-    card.insertAdjacentHTML("beforeend", `<div class="approve-note">Could not read an amount or recipient from this 402, nothing to run.</div>`);
+  if (!amount) {
+    card.querySelector("b").textContent = "Not sent";
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note">Could not read an amount from this 402. Nothing was sent.</div>`);
     return;
   }
-  const cmd = `node wallet/send.mjs --to ${to} --amount ${amount}`;
-  card.insertAdjacentHTML("beforeend", `<div class="approve-cmd">${esc(cmd)}<button type="button" onclick="copyText('${esc(cmd)}')">Copy</button></div><div class="approve-note">Runs in your own terminal with your own BUYER_WALLET_PRIVATE_KEY. Nothing here can send it for you.</div>`);
+  try {
+    const res = await fetch("/api/pay", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ amount }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Payment failed");
+    card.querySelector("b").textContent = "402 approved";
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note">${esc(data.amount)} USDC sent from the buyer wallet to the seller.</div><div class="approve-note"><a href="${esc(data.explorer)}" target="_blank" rel="noreferrer">View on MonadVision</a></div>`);
+    pollWallets();
+  } catch (err) {
+    card.querySelector("b").textContent = "Not sent";
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note">${esc(err.message || "Payment failed")}</div>`);
+  }
 };
 
 window.declinePay = (id) => {
@@ -317,9 +356,9 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
         bot.insertAdjacentHTML("beforeend", `<div class="thinking">${esc(ev.text.length > 240 ? ev.text.slice(0, 240) + "..." : ev.text)}</div>`);
       } else if (ev.type === "payment") {
         steps.insertAdjacentHTML("beforeend", `<div class="pay"><b>HTTP 402 Payment Required</b>${ev.price ? `<br>${esc(ev.price)} on ${esc(ev.network || "")}` : ""}</div>`);
-        bot.insertAdjacentHTML("beforeend", approvalCardHtml(ev));
+        bot.insertAdjacentHTML("beforeend", approvalCardHtml());
       } else if (ev.type === "paid") {
-        bot.insertAdjacentHTML("beforeend", `<div class="paid"><b>Paid, simulated demo wallet</b><br>${esc(ev.tier)} &middot; $${ev.charged} &middot; valid ${ev.hours}h</div>`);
+        bot.insertAdjacentHTML("beforeend", `<div class="paid"><b>Quote ready</b><br>${esc(ev.tier)} &middot; $${ev.charged} USDC on Monad &middot; valid ${ev.hours}h<br><span class="muted">USDC moves when you click Approve.</span></div>`);
       } else if (ev.type === "bundle") {
         const b = ev.bundle;
         const blob = new Blob([JSON.stringify(b, null, 2)], { type: "application/json" });
@@ -347,7 +386,7 @@ async function pollLog() {
     $("#logState").textContent = rows.length ? `${rows.length} recent` : "nothing yet";
     const body = $("#log tbody"); const first = state.seen.size === 0;
     body.innerHTML = rows.map((r) => {
-      const id = r.ts + r.path; const fresh = !first && !state.seen.has(id); state.seen.add(id);
+      const id = r.ts + r.path; const fresh = !first && !state.seen.has(id); state.seen.add(id); if (fresh && window.globePulse) window.globePulse(r.status);
       const robots = r.robots ? `<span class="pill ${r.robots === "allowed" ? "s200" : "s402"}">${r.robots}</span>` : "";
       return `<tr class="${fresh ? "fresh" : ""}"><td>${new Date(r.ts).toLocaleTimeString()}</td><td>${esc(r.model || "")}</td><td>${PURPOSE[r.purpose] || r.purpose || ""}</td><td title="${esc(r.path)}">${esc(r.path)}</td><td><span class="pill ${cls(r.status)}">${r.status}</span></td><td>${robots}</td></tr>`;
     }).join("");
