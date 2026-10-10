@@ -5,7 +5,7 @@ import { Insights } from "./InsightsView";
 import { RULE_GROUPS } from "../data";
 import { findAnomalies, robotsTable } from "../modules/services/anomalies";
 import { hitsFor, robotsPreview, shortPath, summarize } from "../summarize";
-import type { AgentView, Range, Rule, RuleMode, Service, ServiceView, Summary } from "../types";
+import type { AgentView, Range, Rule, RuleMode, Service, ServiceView, Summary, Visit } from "../types";
 
 const fmt = (value: number) => value.toLocaleString();
 const money = (value: number) => `$${value.toFixed(2)}`;
@@ -309,13 +309,37 @@ function Pages({ summary }: { summary: Summary }) {
   );
 }
 
-// The Oct 10 test-traffic flood (6,250 requests in ~90 minutes) drowns out everything
-// else in this list. Hidden here only; other tabs (charts, totals) still see it.
-const FLOOD_DAY = "2026-10-10";
 // Individual request rows for this range were evicted before the flood was caught
 // (confirmed unrecoverable). Only the daily totals in summary.series survived.
 // summary.series labels are pre-formatted ("Oct 3") with no year, so matched literally.
 const GAP_DAY_LABELS = new Set(["Oct 3", "Oct 4", "Oct 5", "Oct 6", "Oct 7", "Oct 8", "Oct 9"]);
+
+function eventSignature(event: Visit): string {
+  return `${event.kind}|${event.agent}|${event.status}|${event.path}`;
+}
+
+// Collapses a run of consecutive, same-signature requests (same kind/agent/status/path,
+// back to back in time) down to the first and last of that run. Display-only — never
+// touches the underlying stored data. A burst (e.g. a retry loop) becomes 2 rows instead
+// of hundreds; genuinely distinct requests are all still shown.
+function dedupeForDisplay(events: Visit[]): { rows: Visit[]; collapsedAway: number } {
+  const byTimeAsc = [...events].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+  const kept: Visit[] = [];
+  let collapsedAway = 0;
+  let i = 0;
+  while (i < byTimeAsc.length) {
+    let j = i;
+    while (j + 1 < byTimeAsc.length && eventSignature(byTimeAsc[j + 1]) === eventSignature(byTimeAsc[i])) j++;
+    kept.push(byTimeAsc[i]);
+    if (j > i) {
+      kept.push(byTimeAsc[j]);
+      collapsedAway += j - i - 1;
+    }
+    i = j + 1;
+  }
+  kept.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
+  return { rows: kept, collapsedAway };
+}
 
 function Events({ summary }: { summary: Summary }) {
   const [kind, setKind] = useState("all");
@@ -324,7 +348,7 @@ function Events({ summary }: { summary: Summary }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 8;
-  const visible = summary.recent.filter((event) => !event.ts.startsWith(FLOOD_DAY));
+  const { rows: visible, collapsedAway } = useMemo(() => dedupeForDisplay(summary.recent), [summary.recent]);
   const kinds = [...new Set(visible.map((event) => event.kind))].sort();
   const agents = [...new Set(visible.map((event) => event.agent))].sort();
   const statuses = [...new Set(visible.map((event) => String(event.status)))].sort();
@@ -344,7 +368,10 @@ function Events({ summary }: { summary: Summary }) {
 
   return (
     <>
-      <p className="obs-lead">{fmt(filtered.length)} of {fmt(visible.length)} requests. Oct 10's test-traffic flood (6,250 requests) is hidden from this list.</p>
+      <p className="obs-lead">
+        {fmt(filtered.length)} of {fmt(visible.length)} requests.
+        {collapsedAway > 0 ? ` ${fmt(collapsedAway)} repeat requests (same kind, client, status and path back to back) collapsed to their first and last occurrence.` : ""}
+      </p>
       {gapDays.length > 0 && (
         <div className="obs-gap-note">
           <p className="obs-empty">
