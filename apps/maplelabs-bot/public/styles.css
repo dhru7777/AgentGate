@@ -201,13 +201,16 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
   padding: 10px 12px; box-shadow: 0 8px 24px rgba(20, 25, 40, .14);
   font-size: 12.5px; z-index: 70;
 }
-.popover.pop-left { right: 0; left: auto; }
+/* The buyer button sits at the far left edge of the header, a right-anchored popover would
+   run off the left side of the screen, so it opens from the left edge instead, growing right. */
+#buyerPop { right: auto; left: 0; }
 .pop-wrap.open .popover { display: block; }
 .pop-title { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
 .popover .kv { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
 .popover .kv span { color: var(--muted); }
 .popover .kv strong { font-weight: 600; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; text-align: right; word-break: break-all; }
 .pop-link { display: block; margin-top: 8px; color: var(--blue); font-size: 11.5px; }
+.pop-link[hidden] { display: none; }
 
 /* Human-in-the-loop payment approval card, shown on every 402 before anything can move. */
 .approve-card { border: 1px solid var(--blue); background: #eff8ff; border-radius: 10px; padding: 10px 12px; margin: 4px 0 8px; font-size: 13px; }
