@@ -1,5 +1,5 @@
 const $ = (s) => document.querySelector(s);
-const state = { mode: "search", brain: "maplelabs", modes: {}, brains: {}, prices: {}, running: false, seen: new Set(), canControl: false };
+const state = { mode: "search", brain: "maplelabs", modes: {}, brains: {}, prices: {}, running: false, seen: new Set(), canControl: false, approveId: 0 };
 const PURPOSE = { training: "Training", search: "Search", user: "User search", unidentified: "Unidentified" };
 
 const BRAND = {
@@ -62,7 +62,76 @@ async function init() {
   loadPolicy();
   pollLog();
   setInterval(pollLog, 2500);
+  initWallets(cfg.wallets);
 }
+
+const short = (addr) => (addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : "not configured");
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); } catch { /* clipboard may be unavailable, ignore */ }
+}
+
+function initWallets(wallets) {
+  if (!wallets) return;
+  state.wallets = wallets;
+  $("#walletbar").hidden = false;
+  $("#buyerAddr").textContent = short(wallets.buyer);
+  $("#sellerAddr").textContent = short(wallets.seller);
+  if (wallets.buyer) $("#buyerAddr").onclick = () => copyText(wallets.buyer);
+  $("#sellerAddr").onclick = () => copyText(wallets.seller);
+  if (!wallets.buyer) $("#buyerBal").textContent = "set BUYER_WALLET_ADDRESS to show a balance";
+  pollWallets();
+  setInterval(pollWallets, 15000);
+}
+
+async function pollWallets() {
+  try {
+    const { buyer, seller } = await (await fetch("/api/wallets")).json();
+    if (buyer) $("#buyerBal").textContent = `${buyer.usdc} USDC · ${buyer.mon} MON`;
+    if (seller) $("#sellerBal").textContent = `${seller.usdc} USDC · ${seller.mon} MON`;
+  } catch { /* balances are a nice-to-have, ignore failures */ }
+}
+
+// A 402 shows this card before anything about money happens. Approve only reveals the exact
+// command to run in your own terminal, it never sends anything itself, no key ever touches
+// this page. Decline just closes it out.
+function approvalCardHtml(ev) {
+  const id = `ap${++state.approveId}`;
+  const amount = (ev.price || "").match(/[\d.]+/)?.[0] || "";
+  const to = ev.payTo || (state.wallets && state.wallets.seller) || "";
+  return `<div class="approve-card" id="${id}">
+    <b>Pay this, or not?</b> A human has to say yes before anything moves.
+    <div class="muted">${amount ? `${esc(amount)} USDC` : "amount unknown"} to ${short(to)}</div>
+    <div class="approve-row">
+      <button class="approve-yes" onclick="approvePay('${id}','${esc(amount)}','${esc(to)}')">Approve</button>
+      <button class="approve-no" onclick="declinePay('${id}')">Decline</button>
+    </div>
+  </div>`;
+}
+
+window.approvePay = (id, amount, to) => {
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.classList.add("resolved");
+  card.querySelector("b").textContent = "Approved, waiting on you";
+  const arrow = $("#walletArrow");
+  arrow.classList.add("active");
+  $("#walletArrowLabel").textContent = `${amount} USDC`;
+  setTimeout(() => arrow.classList.remove("active"), 2500);
+  if (!amount || !to) {
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note">Could not read an amount or recipient from this 402, nothing to run.</div>`);
+    return;
+  }
+  const cmd = `node wallet/send.mjs --to ${to} --amount ${amount}`;
+  card.insertAdjacentHTML("beforeend", `<div class="approve-cmd">${esc(cmd)}<button type="button" onclick="copyText('${esc(cmd)}')">Copy</button></div><div class="approve-note">Runs in your own terminal with your own BUYER_WALLET_PRIVATE_KEY. Nothing here can send it for you.</div>`);
+};
+
+window.declinePay = (id) => {
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.classList.add("resolved");
+  card.querySelector("b").textContent = "Declined";
+};
 
 function toggleMax(pane) {
   const current = document.body.dataset.max;
@@ -180,6 +249,7 @@ async function send() {
         bot.insertAdjacentHTML("beforeend", `<div class="thinking">${esc(ev.text.length > 240 ? ev.text.slice(0, 240) + "..." : ev.text)}</div>`);
       } else if (ev.type === "payment") {
         steps.insertAdjacentHTML("beforeend", `<div class="pay"><b>HTTP 402 Payment Required</b>${ev.price ? `<br>${esc(ev.price)} on ${esc(ev.network || "")}` : ""}</div>`);
+        bot.insertAdjacentHTML("beforeend", approvalCardHtml(ev));
       } else if (ev.type === "paid") {
         bot.insertAdjacentHTML("beforeend", `<div class="paid"><b>Paid, simulated demo wallet</b><br>${esc(ev.tier)} &middot; $${ev.charged} &middot; valid ${ev.hours}h</div>`);
       } else if (ev.type === "bundle") {

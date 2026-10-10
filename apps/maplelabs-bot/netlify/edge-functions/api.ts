@@ -21,6 +21,41 @@ const DEMO_POLICY_KEY = Deno.env.get("DEMO_POLICY_KEY") || "";
 const RULE_ID = "maplelabs";
 const POLITE_DELAY_MS = 350;
 
+// Monad testnet, same chain and USDC contract apps/dashboard already uses (chain/monad.ts).
+// Only ever read here (balances), never signed with. The actual send is a separate script
+// the operator runs themselves, see wallet/send.mjs.
+const MONAD_RPC = Deno.env.get("MONAD_RPC_URL") || "https://testnet-rpc.monad.xyz";
+const MONAD_EXPLORER = "https://testnet.monadvision.com";
+const MONAD_USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
+// Public address only. Never put a private key in an env var this function reads.
+const BUYER_ADDRESS = Deno.env.get("BUYER_WALLET_ADDRESS") || "";
+const SELLER_ADDRESS = Deno.env.get("SELLER_WALLET_ADDRESS") || "0xC90AC2b557088c50264de70969D71419311636c1";
+
+async function rpcCall(method: string, params: unknown[]) {
+  const res = await fetch(MONAD_RPC, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  const body = await res.json();
+  if (body.error) throw new Error(body.error.message || "RPC error");
+  return body.result;
+}
+
+async function walletBalances(address: string) {
+  if (!address) return null;
+  const [monWei, usdcRaw] = await Promise.all([
+    rpcCall("eth_getBalance", [address, "latest"]),
+    rpcCall("eth_call", [{ to: MONAD_USDC, data: "0x70a08231" + address.slice(2).toLowerCase().padStart(64, "0") }, "latest"]),
+  ]);
+  return {
+    address,
+    mon: (Number(BigInt(monWei)) / 1e18).toFixed(4),
+    usdc: (Number(BigInt(usdcRaw || "0x0")) / 1e6).toFixed(2),
+    explorer: `${MONAD_EXPLORER}/address/${address}`,
+  };
+}
+
 const PRICES = {
   search: { perPage: 0.01, unit: "USDC", note: "simulated, per page read" },
   train: {
@@ -303,7 +338,11 @@ async function runAgent({ mode, question, respectRobots }: RunOpts, emit: (ev: u
             result = "Refused locally: robots.txt disallowed this bot and the operator's switch says to respect it. Do not request any more posts.";
           } else {
             const r = await step(path, kind, kind === "post" ? "post" : path.replace("/", ""));
-            if (r.status === 402) emit({ type: "payment", text: "402 Payment Required" });
+            if (r.status === 402) {
+              let terms = {};
+              try { terms = JSON.parse(r.body); } catch { /* ignore */ }
+              emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network, payTo: terms.pay?.payTo });
+            }
             result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
           }
         }
@@ -387,7 +426,11 @@ async function runOpenAIAgent({ mode, question, respectRobots }: RunOpts, emit: 
             result = "Refused locally: robots.txt disallowed this bot and the operator's switch says to respect it. Do not request any more posts.";
           } else {
             const r = await step(path, kind, kind === "post" ? "post" : path.replace("/", ""));
-            if (r.status === 402) emit({ type: "payment", text: "402 Payment Required" });
+            if (r.status === 402) {
+              let terms = {};
+              try { terms = JSON.parse(r.body); } catch { /* ignore */ }
+              emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network, payTo: terms.pay?.payTo });
+            }
             result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
           }
         }
@@ -468,7 +511,15 @@ export default async (req: Request) => {
       anthropic: { available: Boolean(ANTHROPIC_KEY), model: ANTHROPIC_MODEL },
       maplelabs: { available: true, model: null },
     };
-    return json({ site: SITE, modes: MODES, prices: PRICES, canControl: Boolean(ADMIN_KEY), requiresPolicyKey: Boolean(DEMO_POLICY_KEY), brains });
+    return json({
+      site: SITE, modes: MODES, prices: PRICES, canControl: Boolean(ADMIN_KEY), requiresPolicyKey: Boolean(DEMO_POLICY_KEY), brains,
+      wallets: { buyer: BUYER_ADDRESS || null, seller: SELLER_ADDRESS, chain: "Monad Testnet", explorer: MONAD_EXPLORER },
+    });
+  }
+
+  if (pathname === "/api/wallets") {
+    const [buyer, seller] = await Promise.all([walletBalances(BUYER_ADDRESS), walletBalances(SELLER_ADDRESS)]);
+    return json({ buyer, seller });
   }
 
   if (pathname === "/api/policy" && req.method === "GET") {

@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MapleLabsBot</title>
+<title>AgentGate Preview</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c45c26'/%3E%3Cpath d='M8 21V11l8 7 8-7v10' stroke='white' stroke-width='3' fill='none'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 <header class="top">
   <div class="brand">
-    <span class="logo">M</span><strong>MapleLabsBot</strong><span class="muted" id="brainTag">…</span>
+    <span class="logo">M</span><strong>AgentGate Preview</strong><span class="muted" id="brainTag">…</span>
     <button class="dots" id="dotsBtn" type="button" aria-label="Boards">⋮</button>
     <div class="dots-menu" id="dotsMenu" hidden>
       <div class="dots-title">Boards under MapleLabsBot</div>
@@ -20,6 +20,25 @@
   </div>
   <div class="site"><span class="dot" id="siteDot"></span><span id="site">…</span></div>
 </header>
+<div class="walletbar" id="walletbar" hidden>
+  <div class="wallet-card" id="walletBuyer">
+    <span class="wallet-dollar">$</span>
+    <div class="wallet-info">
+      <div class="wallet-label">Buyer wallet <span class="muted">sender</span></div>
+      <div class="wallet-addr" id="buyerAddr">not configured</div>
+      <div class="wallet-bal" id="buyerBal"></div>
+    </div>
+  </div>
+  <div class="wallet-arrow" id="walletArrow"><span>→</span><em id="walletArrowLabel"></em></div>
+  <div class="wallet-card" id="walletSeller">
+    <span class="wallet-dollar">$</span>
+    <div class="wallet-info">
+      <div class="wallet-label">Seller wallet <span class="muted">receive-only</span></div>
+      <div class="wallet-addr" id="sellerAddr">…</div>
+      <div class="wallet-bal" id="sellerBal"></div>
+    </div>
+  </div>
+</div>
 <main class="grid">
   <section class="pane chat">
     <div class="pane-title">
