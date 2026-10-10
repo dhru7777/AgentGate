@@ -71,15 +71,40 @@ async function copyText(text) {
   try { await navigator.clipboard.writeText(text); } catch { /* clipboard may be unavailable, ignore */ }
 }
 
+// Each wallet is a small $ button that opens a popover on click, closes on an outside click
+// or a second click on the same button, same interaction as midnightx402's ui-demo.
+function wirePopover(wrapId, btnId) {
+  const wrap = $(`#${wrapId}`), btn = $(`#${btnId}`);
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !wrap.classList.contains("open");
+    document.querySelectorAll(".pop-wrap.open").forEach((w) => w.classList.remove("open"));
+    if (willOpen) wrap.classList.add("open");
+  });
+}
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".pop-wrap")) document.querySelectorAll(".pop-wrap.open").forEach((w) => w.classList.remove("open"));
+});
+
 function initWallets(wallets) {
   if (!wallets) return;
   state.wallets = wallets;
-  $("#walletbar").hidden = false;
+  $("#buyerWrap").hidden = false;
+  $("#sellerWrap").hidden = false;
+  wirePopover("buyerWrap", "buyerBtn");
+  wirePopover("sellerWrap", "sellerBtn");
+
   $("#buyerAddr").textContent = short(wallets.buyer);
   $("#sellerAddr").textContent = short(wallets.seller);
-  if (wallets.buyer) $("#buyerAddr").onclick = () => copyText(wallets.buyer);
+  if (wallets.buyer) {
+    $("#buyerAddr").onclick = () => copyText(wallets.buyer);
+    $("#buyerExplorer").href = `${wallets.explorer}/address/${wallets.buyer}`;
+    $("#buyerExplorer").hidden = false;
+  }
   $("#sellerAddr").onclick = () => copyText(wallets.seller);
-  if (!wallets.buyer) $("#buyerBal").textContent = "set BUYER_WALLET_ADDRESS to show a balance";
+  $("#sellerExplorer").href = `${wallets.explorer}/address/${wallets.seller}`;
+  $("#sellerExplorer").hidden = false;
+
   pollWallets();
   setInterval(pollWallets, 15000);
 }
@@ -87,8 +112,8 @@ function initWallets(wallets) {
 async function pollWallets() {
   try {
     const { buyer, seller } = await (await fetch("/api/wallets")).json();
-    if (buyer) $("#buyerBal").textContent = `${buyer.usdc} USDC · ${buyer.mon} MON`;
-    if (seller) $("#sellerBal").textContent = `${seller.usdc} USDC · ${seller.mon} MON`;
+    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; }
+    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; }
   } catch { /* balances are a nice-to-have, ignore failures */ }
 }
 
@@ -114,10 +139,9 @@ window.approvePay = (id, amount, to) => {
   if (!card) return;
   card.classList.add("resolved");
   card.querySelector("b").textContent = "Approved, waiting on you";
-  const arrow = $("#walletArrow");
-  arrow.classList.add("active");
-  $("#walletArrowLabel").textContent = `${amount} USDC`;
-  setTimeout(() => arrow.classList.remove("active"), 2500);
+  const btns = [$("#buyerBtn"), $("#sellerBtn")];
+  btns.forEach((b) => b.classList.add("flash"));
+  setTimeout(() => btns.forEach((b) => b.classList.remove("flash")), 2000);
   if (!amount || !to) {
     card.insertAdjacentHTML("beforeend", `<div class="approve-note">Could not read an amount or recipient from this 402, nothing to run.</div>`);
     return;
