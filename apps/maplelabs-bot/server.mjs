@@ -8,12 +8,9 @@
 // order itself, it is not a fixed script. Without a key, a clearly-labeled scripted
 // fallback runs instead, so the demo still works.
 //
-// Payment is a simulated demo wallet. It never touches the live site's real paywall:
-// it does not forge an access token or call /api/verify-payment with a fake tx. When
-// Train mode "pays", the bundle it delivers is built from a local snapshot of the
-// blog's own posts (data/snapshot.json, collected from the Jekyll source files on
-// disk, not by crawling around the gate), standing in for what a real paid export
-// would contain. The chat says this plainly.
+// A click on Approve sends real testnet USDC on Monad from the buyer wallet to the
+// seller (POST /api/pay → wallet/transfer.mjs). The key stays in BUYER_WALLET_PRIVATE_KEY.
+// The training bundle is still a local snapshot: paying does not unlock the live blog.
 
 import http from "node:http";
 import { readFile } from "node:fs/promises";
@@ -43,12 +40,12 @@ const PUBLIC = join(HERE, "public");
 const POLITE_DELAY_MS = 350;
 
 // Monad testnet, same chain and USDC contract apps/dashboard already uses (chain/monad.ts).
-// Only ever read here (balances), never signed with. The actual send is a separate script
-// the operator runs themselves, see wallet/send.mjs.
+// Balances are read here. Signing happens in wallet/transfer.mjs, only after Approve.
 const MONAD_RPC = process.env.MONAD_RPC_URL || "https://testnet-rpc.monad.xyz";
 const MONAD_EXPLORER = "https://testnet.monadvision.com";
 const MONAD_USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
-// Public address only. Never put a private key in an env var this server reads.
+// Public address. The matching private key is BUYER_WALLET_PRIVATE_KEY, read only
+// inside wallet/transfer.mjs and never sent to the browser.
 const BUYER_ADDRESS = process.env.BUYER_WALLET_ADDRESS || "";
 const SELLER_ADDRESS = process.env.SELLER_WALLET_ADDRESS || "0xC90AC2b557088c50264de70969D71419311636c1";
 
@@ -63,24 +60,82 @@ async function rpcCall(method, params) {
   return body.result;
 }
 
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const FIXED_AMOUNTS = new Set(["0.01", "0.15", "0.40"]);
+
+function fixedAmount(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return null;
+  const fixed = n.toFixed(2);
+  return FIXED_AMOUNTS.has(fixed) ? fixed : null;
+}
+
+async function logsInRange(fromBlock, toBlock, topics) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      return await rpcCall("eth_getLogs", [{ address: MONAD_USDC, fromBlock, toBlock, topics }]);
+    } catch (err) {
+      if (!/limit/i.test(err.message) || attempt === 3) throw err;
+      await sleep(400);
+    }
+  }
+  return [];
+}
+
+async function recentUsdc(address) {
+  try {
+    const latest = BigInt(await rpcCall("eth_blockNumber", []));
+    const pad = "0x" + address.slice(2).toLowerCase().padStart(64, "0");
+    const logs = [];
+    // This RPC rejects eth_getLogs ranges wider than 100 blocks, and caps calls per second.
+    for (let i = 0; i < 12 && logs.length < 3; i++) {
+      const end = latest - BigInt(i * 100);
+      if (end < 0n) break;
+      const start = end > 99n ? end - 99n : 0n;
+      const fromBlock = "0x" + start.toString(16);
+      const toBlock = "0x" + end.toString(16);
+      logs.push(...(await logsInRange(fromBlock, toBlock, [TRANSFER_TOPIC, pad]) || []));
+      logs.push(...(await logsInRange(fromBlock, toBlock, [TRANSFER_TOPIC, null, pad]) || []));
+      if (logs.length < 3) await sleep(80);
+    }
+    const seen = new Set();
+    return logs
+      .map((log) => ({
+        hash: log.transactionHash,
+        direction: String(log.topics[1]).toLowerCase() === pad ? "out" : "in",
+        amount: (Number(BigInt(log.data)) / 1e6).toFixed(2),
+        block: Number(BigInt(log.blockNumber)),
+        explorer: `${MONAD_EXPLORER}/tx/${log.transactionHash}`,
+      }))
+      .sort((a, b) => b.block - a.block)
+      .filter((row) => (seen.has(row.hash) ? false : seen.add(row.hash)))
+      .slice(0, 3);
+  } catch (err) {
+    console.error("recentUsdc", err.message);
+    return [];
+  }
+}
+
 async function walletBalances(address) {
   if (!address) return null;
-  const [monWei, usdcRaw] = await Promise.all([
+  const [monWei, usdcRaw, txs] = await Promise.all([
     rpcCall("eth_getBalance", [address, "latest"]),
     // ERC-20 balanceOf(address), hand-encoded: no library needed for one read call.
     rpcCall("eth_call", [{ to: MONAD_USDC, data: "0x70a08231" + address.slice(2).toLowerCase().padStart(64, "0") }, "latest"]),
+    recentUsdc(address),
   ]);
   return {
     address,
     mon: (Number(BigInt(monWei)) / 1e18).toFixed(4),
     usdc: (Number(BigInt(usdcRaw || "0x0")) / 1e6).toFixed(2),
     explorer: `${MONAD_EXPLORER}/address/${address}`,
+    txs,
   };
 }
 
 // v1 demo prices. Placeholders, not a real pricing model. v2 will set these properly.
 const PRICES = {
-  search: { perPage: 0.01, unit: "USDC", note: "simulated, per page read" },
+  search: { perPage: 0.01, unit: "USDC", label: "Pay per use", note: "one page" },
   train: {
     starter: { usd: 0.15, label: "Starter bundle", postCap: 10 },
     full: { usd: 0.4, label: "Full archive bundle", postCap: 999 },
@@ -196,7 +251,7 @@ function fetcher(mode, brand, model, emit, stats) {
 }
 
 function payForBundle(bundle) {
-  // Simulated demo wallet. No real transaction, no token sent to the live site.
+  // Quote only. USDC moves later, when the person clicks Approve.
   const tier = PRICES.train[bundle] || PRICES.train.starter;
   return { ok: true, tier, charged: tier.usd, expiresAt: Date.now() + PRICES.train.hours * 3600 * 1000 };
 }
@@ -254,7 +309,7 @@ async function runScripted({ mode, question, respectRobots, bundleChoice }, emit
       emit({ type: "paid", tier: paid.tier.label, charged: paid.charged, hours: PRICES.train.hours });
       const bundle = await buildBundle(tier, question);
       emit({ type: "bundle", bundle });
-      emit({ type: "answer", text: `Paid the demo wallet for the ${paid.tier.label} (simulated, $${paid.charged}). Delivered ${bundle.postCount} posts as a 48 hour training bundle, built from a local snapshot, not fetched around the live paywall.`, sources: [] });
+      emit({ type: "answer", text: `The post returned HTTP 402. Click Approve to send $${paid.charged} USDC on Monad testnet from the buyer wallet to the seller. The ${paid.tier.label} (${bundle.postCount} posts) is a local snapshot, ready once you approve.`, sources: [] });
       emit({ type: "done", mode, ...stats });
       return;
     }
@@ -289,7 +344,7 @@ function toolsFor(mode) {
     },
     {
       name: "pay_for_training_bundle",
-      description: "Only use this in Train mode, only after a post you asked for came back as HTTP 402, and only if the operator's respect-robots.txt setting did not already stop you. Pays a simulated demo wallet for a bundle and returns it. This never touches the real site's paywall, it is a stand-in for a paid export.",
+      description: "Only use this in Train mode, only after a post you asked for came back as HTTP 402, and only if the operator's respect-robots.txt setting did not already stop you. Prepares the training bundle. It does not send USDC. The person clicks Approve in the demo to send testnet USDC from the buyer wallet to the seller on Monad.",
       input_schema: { type: "object", properties: { bundle: { type: "string", enum: ["starter", "full"], description: "starter = up to 10 posts, full = the whole archive" } }, required: ["bundle"] },
     },
     {
@@ -309,8 +364,8 @@ const BRAND_LINE = {
 function systemPrompt({ mode, brand, respectRobots, question }) {
   const m = MODES[mode];
   const priceLine = mode === "train"
-    ? `Train pricing (simulated demo money, not real): ${PRICES.train.starter.label} $${PRICES.train.starter.usd} (up to ${PRICES.train.starter.postCap} posts), ${PRICES.train.full.label} $${PRICES.train.full.usd} (the whole archive), both valid ${PRICES.train.hours} hours.`
-    : `Search pricing, simulated and informational only, you have no wallet for a single lookup: $${PRICES.search.perPage} ${PRICES.search.unit} per page.`;
+    ? `Train pricing, paid in testnet USDC on Monad only after the person clicks Approve: ${PRICES.train.starter.label} $${PRICES.train.starter.usd} (up to ${PRICES.train.starter.postCap} posts), ${PRICES.train.full.label} $${PRICES.train.full.usd} (the whole archive), both valid ${PRICES.train.hours} hours.`
+    : `Search pricing: $${PRICES.search.perPage} ${PRICES.search.unit} per page on Monad testnet, sent only if the person clicks Approve.`;
   return `You are MapleLabsBot, running in ${m.label} mode (${m.why}). Your User-Agent token is ${m.token}. ${BRAND_LINE[brand] || ""} You are a test crawler built to demonstrate AgentGate's paywall to someone evaluating it, so behave the way a real, well-behaved crawler would: check robots.txt before you fetch anything else, decide what to do next yourself based on what you actually find, and do not follow a fixed script.
 
 The operator's respect-robots.txt switch is currently ${respectRobots ? "ON, meaning if robots.txt disallows you for post URLs, you must stop and not request any post." : "OFF, meaning you may ignore a Disallow for this test run, but say plainly that you are doing so."}
@@ -405,7 +460,7 @@ async function runAgent({ mode, question, respectRobots, bundleChoice }, emit) {
           emit({ type: "paid", tier: paid.tier.label, charged: paid.charged, hours: PRICES.train.hours });
           emit({ type: "bundle", bundle });
           const titles = bundle.posts.map((p) => `- ${p.title}`).join("\n");
-          result = `Paid (simulated demo wallet): ${paid.tier.label}, $${paid.charged}, valid ${PRICES.train.hours}h. Bundle delivered: ${bundle.postCount} posts, built from a local snapshot of the site's own source files, not fetched around the paywall. Titles in the bundle:\n${titles}\n\nMention the payment plainly in your final answer, and you may summarize or reference what's in this list, but you do not have the full text of these posts, do not invent details beyond a title.`;
+          result = `Quote ready, no USDC sent yet: ${paid.tier.label}, $${paid.charged}, valid ${PRICES.train.hours}h. The person must click Approve, which sends that USDC on Monad testnet from the buyer wallet to the seller. Bundle prepared locally: ${bundle.postCount} posts from a snapshot, not fetched around the paywall. Titles:\n${titles}\n\nSay that payment still needs Approve. You may summarize titles in this list. Do not invent details beyond a title, and do not say the USDC has already moved.`;
         }
       } else if (call.name === "finish") {
         emit({ type: "answer", text: call.input.answer, sources: (call.input.sources || []).map((url) => ({ url, title: url })) });
@@ -504,7 +559,7 @@ async function runOpenAIAgent({ mode, question, respectRobots }, emit) {
           emit({ type: "paid", tier: paid.tier.label, charged: paid.charged, hours: PRICES.train.hours });
           emit({ type: "bundle", bundle });
           const titles = bundle.posts.map((p) => `- ${p.title}`).join("\n");
-          result = `Paid (simulated demo wallet): ${paid.tier.label}, $${paid.charged}, valid ${PRICES.train.hours}h. Bundle delivered: ${bundle.postCount} posts, built from a local snapshot of the site's own source files, not fetched around the paywall. Titles in the bundle:\n${titles}\n\nMention the payment plainly in your final answer, and you may summarize or reference what's in this list, but you do not have the full text of these posts, do not invent details beyond a title.`;
+          result = `Quote ready, no USDC sent yet: ${paid.tier.label}, $${paid.charged}, valid ${PRICES.train.hours}h. The person must click Approve, which sends that USDC on Monad testnet from the buyer wallet to the seller. Bundle prepared locally: ${bundle.postCount} posts from a snapshot, not fetched around the paywall. Titles:\n${titles}\n\nSay that payment still needs Approve. You may summarize titles in this list. Do not invent details beyond a title, and do not say the USDC has already moved.`;
         }
       } else if (call.function.name === "finish") {
         emit({ type: "answer", text: args.answer, sources: (args.sources || []).map((url) => ({ url, title: url })) });
@@ -559,6 +614,12 @@ async function waitUntilLive(mode) {
 
 function readBody(req) { return new Promise((resolve) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => resolve(b || "{}")); }); }
 
+const settlements = [];
+function rememberSettlement(entry) {
+  settlements.unshift(entry);
+  if (settlements.length > 20) settlements.length = 20;
+}
+
 async function handleApi(req, res, url) {
   const json = (code, body) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(body)); };
   if (url.pathname === "/api/config") {
@@ -571,11 +632,39 @@ async function handleApi(req, res, url) {
     return json(200, {
       site: SITE, modes: MODES, prices: PRICES, canControl: Boolean(ADMIN_KEY), brains,
       wallets: { buyer: BUYER_ADDRESS || null, seller: SELLER_ADDRESS, chain: "Monad Testnet", explorer: MONAD_EXPLORER },
+      canPay: Boolean(process.env.BUYER_WALLET_PRIVATE_KEY),
     });
+  }
+  if (url.pathname === "/api/prices" && req.method === "GET") {
+    return json(200, { prices: PRICES, chain: "Monad Testnet" });
+  }
+  if (url.pathname === "/api/settlements" && req.method === "GET") {
+    return json(200, { settlements });
   }
   if (url.pathname === "/api/wallets") {
     const [buyer, seller] = await Promise.all([walletBalances(BUYER_ADDRESS), walletBalances(SELLER_ADDRESS)]);
     return json(200, { buyer, seller });
+  }
+  if (url.pathname === "/api/transfers" && req.method === "GET") {
+    const [buyer, seller] = await Promise.all([walletBalances(BUYER_ADDRESS), walletBalances(SELLER_ADDRESS)]);
+    return json(200, {
+      buyer: buyer ? buyer.txs : [],
+      seller: seller ? seller.txs : [],
+    });
+  }
+  if (url.pathname === "/api/pay" && req.method === "POST") {
+    const body = JSON.parse(await readBody(req));
+    const amount = fixedAmount(body.amount);
+    if (!amount) return json(400, { ok: false, error: "Amount must be a fixed price: 0.01, 0.15, or 0.40 USDC." });
+    try {
+      const { transferUsdc } = await import("./wallet/transfer.mjs");
+      const result = await transferUsdc({ to: SELLER_ADDRESS, amount });
+      const path = typeof body.path === "string" ? body.path.slice(0, 300) : "";
+      rememberSettlement({ at: new Date().toISOString(), amount: result.amount, path, txHash: result.txHash, explorer: result.explorer, from: result.from, to: result.to });
+      return json(200, { ok: true, path, ...result });
+    } catch (err) {
+      return json(err.status || 500, { ok: false, error: err.message || "Payment failed" });
+    }
   }
   if (url.pathname === "/api/policy" && req.method === "GET") {
     if (!ADMIN_KEY) return json(200, { mode: null });

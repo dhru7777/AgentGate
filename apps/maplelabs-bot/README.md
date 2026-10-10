@@ -27,17 +27,21 @@ OPENAI_API_KEY=sk-... ANTHROPIC_API_KEY=sk-ant-... ADMIN_KEY=<analytics password
 
 Put the keys in `.env.local` next to `server.mjs` instead if you would rather not type them each time. That file is gitignored and the server loads it automatically if present; it is never committed.
 
-## Payment is simulated, not a live bypass
+## Payment
 
-The bot has no real wallet. When Train mode pays, it pays a simulated demo wallet, no transaction, no token sent to the live site. The delivered bundle is built from `data/snapshot.json`, a small set of the blog's own posts collected from its Jekyll source files on disk, not by fetching around the 402. The chat says this plainly. Prices (`$0.15` starter / `$0.40` full, 48 hours) are v1 placeholders, not a real pricing model.
+A 402 shows an Approve card. Approve sends testnet USDC on Monad from `BUYER_WALLET_ADDRESS` to `SELLER_WALLET_ADDRESS` (default `0xC90AC2b557088c50264de70969D71419311636c1`). The private key stays in `BUYER_WALLET_PRIVATE_KEY` on the server. Each click is capped at 1 USDC, and the recipient is always the seller, never an address from the browser.
+
+The training bundle is still built from `data/snapshot.json`. Paying does not unlock the live blog. Prices (`$0.01` per search page, `$0.15` starter / `$0.40` full, 48 hours) are v1 placeholders.
 
 - **Train + Block:** robots.txt disallows the bot, it stops before any post request, nothing is charged.
-- **Train + Charge:** robots.txt allows it, a post 402s, it pays the simulated wallet and gets the bundle.
-- **Search:** no wallet at all, a 402 just ends the lookup.
+- **Train + Charge:** robots.txt allows it, a post 402s, Approve sends the USDC, and the snapshot bundle is offered.
+- **Search:** a 402 ends the lookup until Approve sends the page price.
 
 ## Other env vars
 
 - `SITE` (default `https://dheeraj-work.netlify.app`), `PORT` (default `5180`).
 - `ANTHROPIC_MODEL` (default `claude-sonnet-5-5`), `OPENAI_MODEL` (default `gpt-5`).
 - `ADMIN_KEY` is the blog's analytics password. Without it the bot still runs, but the Free/Charge/Block switch and the gate log are off.
+- `BUYER_WALLET_ADDRESS`, `BUYER_WALLET_PRIVATE_KEY`, and optional `SELLER_WALLET_ADDRESS`. Without the private key, balances still show and Approve reports that it cannot send.
+- On Netlify, set the same three variables on the site. The edge function `POST /api/pay` uses them. The key is never returned to the page.
 - The policy switch changes the live rule for `MapleLabsBot`. The site takes up to about a minute to pick it up; the switch waits until it actually behaves the new way before re-enabling itself.

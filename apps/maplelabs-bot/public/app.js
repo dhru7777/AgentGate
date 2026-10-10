@@ -1,5 +1,5 @@
 const $ = (s) => document.querySelector(s);
-const state = { mode: "search", brain: "maplelabs", bundle: "starter", modes: {}, brains: {}, prices: {}, running: false, seen: new Set(), canControl: false, approveId: 0 };
+const state = { mode: "search", brain: "maplelabs", bundle: "starter", modes: {}, brains: {}, prices: {}, running: false, seen: new Set(), canControl: false, approveId: 0, settled: new Set(), last402Path: "" };
 const PURPOSE = { training: "Training", search: "Search", user: "User search", unidentified: "Unidentified" };
 
 const BRAND = {
@@ -25,6 +25,7 @@ async function init() {
   state.brains = cfg.brains;
   state.prices = cfg.prices;
   state.canControl = cfg.canControl;
+  state.canPay = cfg.canPay;
   state.requiresPolicyKey = cfg.requiresPolicyKey;
 
   $("#site").textContent = cfg.site.replace("https://", "");
@@ -68,6 +69,10 @@ async function init() {
   document.addEventListener("click", (e) => { if (!e.target.closest(".brand")) $("#dotsMenu").hidden = true; });
   document.querySelectorAll(".max-btn").forEach((b) => b.addEventListener("click", () => toggleMax(b.dataset.pane)));
 
+  try {
+    const paid = await (await fetch("/api/settlements")).json();
+    for (const row of paid.settlements || []) if (row.path) state.settled.add(pathKey(row.path));
+  } catch { /* settlements are optional until the first approval */ }
   setMode("search");
   setBrain("maplelabs");
   loadPolicy();
@@ -120,45 +125,91 @@ function initWallets(wallets) {
   setInterval(pollWallets, 15000);
 }
 
+function paintTx(id, txs) {
+  const el = $(`#${id}`);
+  if (!el) return;
+  if (!txs || !txs.length) {
+    el.innerHTML = `<div class="tx-empty">No USDC transfers yet</div>`;
+    return;
+  }
+  el.innerHTML = txs.map((t) => {
+    const out = t.direction === "out";
+    const sign = out ? "\u2212" : "+";
+    return `<a class="tx ${out ? "out" : "in"}" href="${esc(t.explorer)}" target="_blank" rel="noreferrer"><span class="amt">${sign}${esc(t.amount)} USDC</span><span>${esc(t.hash.slice(0, 6))}…${esc(t.hash.slice(-4))}</span></a>`;
+  }).join("");
+}
+
 async function pollWallets() {
   try {
     const { buyer, seller } = await (await fetch("/api/wallets")).json();
-    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; }
-    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; }
+    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; paintTx("buyerTx", buyer.txs); }
+    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; paintTx("sellerTx", seller.txs); }
   } catch { /* balances are a nice-to-have, ignore failures */ }
 }
 
-// A 402 shows this card before anything about money happens. Approve only reveals the exact
-// command to run in your own terminal, it never sends anything itself, no key ever touches
-// this page. Decline just closes it out.
-function approvalCardHtml(ev) {
+function fixedQuote() {
+  if (state.mode === "train") {
+    const tier = (state.prices.train && state.prices.train[state.bundle]) || { usd: 0.15, label: "Starter bundle" };
+    return { amount: Number(tier.usd).toFixed(2), label: tier.label };
+  }
+  const page = state.prices.search ? state.prices.search.perPage : 0.01;
+  return { amount: Number(page).toFixed(2), label: "Pay per use" };
+}
+
+// A 402 shows this card before any USDC moves. Approve asks the server to send that
+// amount on Monad from the buyer wallet to the configured seller. The key never
+// reaches this page. Decline sends nothing.
+function approvalCardHtml() {
   const id = `ap${++state.approveId}`;
-  const amount = (ev.price || "").match(/[\d.]+/)?.[0] || "";
-  const to = ev.payTo || (state.wallets && state.wallets.seller) || "";
-  return `<div class="approve-card" id="${id}">
-    <b>Pay this, or not?</b> A human has to say yes before anything moves.
-    <div class="muted">${amount ? `${esc(amount)} USDC` : "amount unknown"} to ${short(to)}</div>
+  const quote = fixedQuote();
+  const to = (state.wallets && state.wallets.seller) || "";
+  const ready = state.canPay ? "" : `<div class="approve-note">The server has no buyer key yet, so Approve cannot send.</div>`;
+  return `<div class="approve-card" id="${id}" data-path="${esc(state.last402Path || "")}">
+    <b>HTTP 402</b> A human has to say yes before anything moves.
+    <div class="muted">${esc(quote.amount)} USDC on Monad to ${short(to)}</div>
+    ${ready}
     <div class="approve-row">
-      <button class="approve-yes" onclick="approvePay('${id}','${esc(amount)}','${esc(to)}')">Approve</button>
+      <button class="approve-yes" onclick="approvePay('${id}','${esc(quote.amount)}')">Approve</button>
       <button class="approve-no" onclick="declinePay('${id}')">Decline</button>
     </div>
   </div>`;
 }
 
-window.approvePay = (id, amount, to) => {
+window.approvePay = async (id, amount) => {
   const card = document.getElementById(id);
-  if (!card) return;
+  if (!card || card.dataset.sending === "1") return;
+  card.dataset.sending = "1";
   card.classList.add("resolved");
-  card.querySelector("b").textContent = "Approved, waiting on you";
-  const btns = [$("#buyerBtn"), $("#sellerBtn")];
+  card.querySelector("b").textContent = "Sending USDC on Monad…";
+  const btns = [$("#buyerBtn"), $("#sellerBtn")].filter(Boolean);
   btns.forEach((b) => b.classList.add("flash"));
   setTimeout(() => btns.forEach((b) => b.classList.remove("flash")), 2000);
-  if (!amount || !to) {
-    card.insertAdjacentHTML("beforeend", `<div class="approve-note">Could not read an amount or recipient from this 402, nothing to run.</div>`);
+  if (!amount) {
+    card.querySelector("b").textContent = "Not sent";
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note">Could not read an amount from this 402. Nothing was sent.</div>`);
     return;
   }
-  const cmd = `node wallet/send.mjs --to ${to} --amount ${amount}`;
-  card.insertAdjacentHTML("beforeend", `<div class="approve-cmd">${esc(cmd)}<button type="button" onclick="copyText('${esc(cmd)}')">Copy</button></div><div class="approve-note">Runs in your own terminal with your own BUYER_WALLET_PRIVATE_KEY. Nothing here can send it for you.</div>`);
+  try {
+    const res = await fetch("/api/pay", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ amount, path: card.dataset.path || state.last402Path || "" }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Payment failed");
+    const paidPath = data.path || card.dataset.path || state.last402Path;
+    if (paidPath) state.settled.add(pathKey(paidPath));
+    document.querySelectorAll(".badge.s402, .node.s402").forEach((el) => {
+      el.classList.remove("s402");
+      el.classList.add("s200");
+    });
+    card.querySelector("b").textContent = "402 approved";
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note">${esc(data.amount)} USDC sent from the buyer wallet to the seller.</div><div class="approve-note"><a href="${esc(data.explorer)}" target="_blank" rel="noreferrer">View on MonadVision</a></div>`);
+    pollWallets();
+  } catch (err) {
+    card.querySelector("b").textContent = "Not sent";
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note">${esc(err.message || "Payment failed")}</div>`);
+  }
 };
 
 window.declinePay = (id) => {
@@ -242,7 +293,10 @@ async function setPolicy(mode) {
 
 function add(html, cls) { const d = document.createElement("div"); d.className = cls; d.innerHTML = html; $("#thread").append(d); $("#thread").scrollTop = 1e9; return d; }
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-const cls = (s) => (s === 200 ? "s200" : s === 402 ? "s402" : "sx");
+const pathKey = (p) => {
+  try { return new URL(p, "https://local").pathname; } catch { return p || ""; }
+};
+const cls = (s, path) => (s === 200 || (s === 402 && path && state.settled.has(pathKey(path))) ? "s200" : s === 402 ? "s402" : "sx");
 
 function beam(label) {
   const b = $("#beam"); $("#beamLabel").textContent = label;
@@ -304,9 +358,9 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
       if (!p.startsWith("data: ")) continue;
       const ev = JSON.parse(p.slice(6));
       if (ev.type === "step") {
-        req++; if (ev.status === 200) ok++; if (ev.status === 402) blocked++;
-        steps.insertAdjacentHTML("beforeend", `<div class="step"><span class="badge ${cls(ev.status)}">${ev.status}</span><span>${esc(ev.label)}</span><code>${esc(ev.path.length > 42 ? ev.path.slice(0, 42) + "..." : ev.path)} &middot; ${ev.ms}ms</code></div>`);
-        const node = document.querySelector(`.node[data-k="${ev.kind}"]`); if (node) node.className = "node " + cls(ev.status);
+        req++; if (ev.status === 200) ok++; if (ev.status === 402) { blocked++; state.last402Path = ev.path; }
+        steps.insertAdjacentHTML("beforeend", `<div class="step"><span class="badge ${cls(ev.status, ev.path)}">${ev.status}</span><span>${esc(ev.label)}</span><code>${esc(ev.path.length > 42 ? ev.path.slice(0, 42) + "..." : ev.path)} &middot; ${ev.ms}ms</code></div>`);
+        const node = document.querySelector(`.node[data-k="${ev.kind}"]`); if (node) node.className = "node " + cls(ev.status, ev.path);
         $("#kReq").textContent = req; $("#kOk").textContent = ok; $("#kBlock").textContent = blocked;
         beam(ev.path); navigateSite(ev.path);
       } else if (ev.type === "decision") {
@@ -317,9 +371,9 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
         bot.insertAdjacentHTML("beforeend", `<div class="thinking">${esc(ev.text.length > 240 ? ev.text.slice(0, 240) + "..." : ev.text)}</div>`);
       } else if (ev.type === "payment") {
         steps.insertAdjacentHTML("beforeend", `<div class="pay"><b>HTTP 402 Payment Required</b>${ev.price ? `<br>${esc(ev.price)} on ${esc(ev.network || "")}` : ""}</div>`);
-        bot.insertAdjacentHTML("beforeend", approvalCardHtml(ev));
+        bot.insertAdjacentHTML("beforeend", approvalCardHtml());
       } else if (ev.type === "paid") {
-        bot.insertAdjacentHTML("beforeend", `<div class="paid"><b>Paid, simulated demo wallet</b><br>${esc(ev.tier)} &middot; $${ev.charged} &middot; valid ${ev.hours}h</div>`);
+        bot.insertAdjacentHTML("beforeend", `<div class="paid"><b>Quote ready</b><br>${esc(ev.tier)} &middot; $${ev.charged} USDC on Monad &middot; valid ${ev.hours}h<br><span class="muted">USDC moves when you click Approve.</span></div>`);
       } else if (ev.type === "bundle") {
         const b = ev.bundle;
         const blob = new Blob([JSON.stringify(b, null, 2)], { type: "application/json" });
@@ -347,9 +401,10 @@ async function pollLog() {
     $("#logState").textContent = rows.length ? `${rows.length} recent` : "nothing yet";
     const body = $("#log tbody"); const first = state.seen.size === 0;
     body.innerHTML = rows.map((r) => {
-      const id = r.ts + r.path; const fresh = !first && !state.seen.has(id); state.seen.add(id);
+      const id = r.ts + r.path; const fresh = !first && !state.seen.has(id); state.seen.add(id); if (fresh && window.globePulse) window.globePulse(r.status);
       const robots = r.robots ? `<span class="pill ${r.robots === "allowed" ? "s200" : "s402"}">${r.robots}</span>` : "";
-      return `<tr class="${fresh ? "fresh" : ""}"><td>${new Date(r.ts).toLocaleTimeString()}</td><td>${esc(r.model || "")}</td><td>${PURPOSE[r.purpose] || r.purpose || ""}</td><td title="${esc(r.path)}">${esc(r.path)}</td><td><span class="pill ${cls(r.status)}">${r.status}</span></td><td>${robots}</td></tr>`;
+      const statusClass = cls(r.status, r.path);
+      return `<tr class="${fresh ? "fresh" : ""}"><td>${new Date(r.ts).toLocaleTimeString()}</td><td>${esc(r.model || "")}</td><td>${PURPOSE[r.purpose] || r.purpose || ""}</td><td title="${esc(r.path)}">${esc(r.path)}</td><td><span class="pill ${statusClass}">${r.status}</span></td><td>${robots}</td></tr>`;
     }).join("");
   } catch { $("#logState").textContent = "offline"; }
 }
