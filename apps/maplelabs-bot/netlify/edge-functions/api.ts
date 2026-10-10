@@ -53,15 +53,23 @@ function fixedAmount(amount: string) {
 async function recentUsdc(address: string) {
   try {
     const latest = BigInt(await rpcCall("eth_blockNumber", []));
-    const fromBlock = "0x" + (latest > 500000n ? latest - 500000n : 0n).toString(16);
     const pad = "0x" + address.slice(2).toLowerCase().padStart(64, "0");
-    const [outgoing, incoming] = await Promise.all([
-      rpcCall("eth_getLogs", [{ address: MONAD_USDC, fromBlock, toBlock: "latest", topics: [TRANSFER_TOPIC, pad] }]),
-      rpcCall("eth_getLogs", [{ address: MONAD_USDC, fromBlock, toBlock: "latest", topics: [TRANSFER_TOPIC, null, pad] }]),
-    ]);
+    const logs: { transactionHash: string; topics: string[]; data: string; blockNumber: string }[] = [];
+    // This RPC rejects eth_getLogs ranges wider than 100 blocks.
+    for (let i = 0; i < 12 && logs.length < 3; i++) {
+      const end = latest - BigInt(i * 100);
+      if (end < 0n) break;
+      const start = end > 99n ? end - 99n : 0n;
+      const range = { fromBlock: "0x" + start.toString(16), toBlock: "0x" + end.toString(16) };
+      const [outgoing, incoming] = await Promise.all([
+        rpcCall("eth_getLogs", [{ address: MONAD_USDC, ...range, topics: [TRANSFER_TOPIC, pad] }]),
+        rpcCall("eth_getLogs", [{ address: MONAD_USDC, ...range, topics: [TRANSFER_TOPIC, null, pad] }]),
+      ]);
+      logs.push(...(outgoing || []), ...(incoming || []));
+    }
     const seen = new Set<string>();
-    return [...(outgoing || []), ...(incoming || [])]
-      .map((log: { transactionHash: string; topics: string[]; data: string; blockNumber: string }) => ({
+    return logs
+      .map((log) => ({
         hash: log.transactionHash,
         direction: String(log.topics[1]).toLowerCase() === pad ? "out" : "in",
         amount: (Number(BigInt(log.data)) / 1e6).toFixed(2),
@@ -608,6 +616,8 @@ async function transferUsdc(amount: string) {
   return { from: account.address, to: SELLER_ADDRESS, amount: formatUnits(value, 6), txHash: hash, explorer: `${MONAD_EXPLORER}/tx/${hash}` };
 }
 
+const settlements: { at: string; amount: string; path: string; txHash: string; explorer: string; from: string; to: string }[] = [];
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
@@ -629,6 +639,12 @@ export default async (req: Request) => {
     });
   }
 
+  if (pathname === "/api/prices" && req.method === "GET") {
+    return json({ prices: PRICES, chain: "Monad Testnet" });
+  }
+  if (pathname === "/api/settlements" && req.method === "GET") {
+    return json({ settlements });
+  }
   if (pathname === "/api/wallets") {
     const [buyer, seller] = await Promise.all([walletBalances(BUYER_ADDRESS), walletBalances(SELLER_ADDRESS)]);
     return json({ buyer, seller });
@@ -640,7 +656,10 @@ export default async (req: Request) => {
       const amount = fixedAmount(String(body.amount ?? ""));
       if (!amount) return json({ ok: false, error: "Amount must be a fixed price: 0.01, 0.15, or 0.40 USDC." }, 400);
       const result = await transferUsdc(amount);
-      return json({ ok: true, ...result });
+      const path = typeof body.path === "string" ? body.path.slice(0, 300) : "";
+      settlements.unshift({ at: new Date().toISOString(), amount: result.amount, path, txHash: result.txHash, explorer: result.explorer, from: result.from, to: result.to });
+      if (settlements.length > 20) settlements.length = 20;
+      return json({ ok: true, path, ...result });
     } catch (err) {
       const status = (err && err.status) || 500;
       return json({ ok: false, error: err instanceof Error ? err.message : "Payment failed" }, status);

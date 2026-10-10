@@ -70,17 +70,36 @@ function fixedAmount(amount) {
   return FIXED_AMOUNTS.has(fixed) ? fixed : null;
 }
 
+async function logsInRange(fromBlock, toBlock, topics) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      return await rpcCall("eth_getLogs", [{ address: MONAD_USDC, fromBlock, toBlock, topics }]);
+    } catch (err) {
+      if (!/limit/i.test(err.message) || attempt === 3) throw err;
+      await sleep(400);
+    }
+  }
+  return [];
+}
+
 async function recentUsdc(address) {
   try {
     const latest = BigInt(await rpcCall("eth_blockNumber", []));
-    const fromBlock = "0x" + (latest > 500000n ? latest - 500000n : 0n).toString(16);
     const pad = "0x" + address.slice(2).toLowerCase().padStart(64, "0");
-    const [outgoing, incoming] = await Promise.all([
-      rpcCall("eth_getLogs", [{ address: MONAD_USDC, fromBlock, toBlock: "latest", topics: [TRANSFER_TOPIC, pad] }]),
-      rpcCall("eth_getLogs", [{ address: MONAD_USDC, fromBlock, toBlock: "latest", topics: [TRANSFER_TOPIC, null, pad] }]),
-    ]);
+    const logs = [];
+    // This RPC rejects eth_getLogs ranges wider than 100 blocks, and caps calls per second.
+    for (let i = 0; i < 12 && logs.length < 3; i++) {
+      const end = latest - BigInt(i * 100);
+      if (end < 0n) break;
+      const start = end > 99n ? end - 99n : 0n;
+      const fromBlock = "0x" + start.toString(16);
+      const toBlock = "0x" + end.toString(16);
+      logs.push(...(await logsInRange(fromBlock, toBlock, [TRANSFER_TOPIC, pad]) || []));
+      logs.push(...(await logsInRange(fromBlock, toBlock, [TRANSFER_TOPIC, null, pad]) || []));
+      if (logs.length < 3) await sleep(80);
+    }
     const seen = new Set();
-    return [...(outgoing || []), ...(incoming || [])]
+    return logs
       .map((log) => ({
         hash: log.transactionHash,
         direction: String(log.topics[1]).toLowerCase() === pad ? "out" : "in",
@@ -91,7 +110,8 @@ async function recentUsdc(address) {
       .sort((a, b) => b.block - a.block)
       .filter((row) => (seen.has(row.hash) ? false : seen.add(row.hash)))
       .slice(0, 3);
-  } catch {
+  } catch (err) {
+    console.error("recentUsdc", err.message);
     return [];
   }
 }
@@ -594,6 +614,12 @@ async function waitUntilLive(mode) {
 
 function readBody(req) { return new Promise((resolve) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => resolve(b || "{}")); }); }
 
+const settlements = [];
+function rememberSettlement(entry) {
+  settlements.unshift(entry);
+  if (settlements.length > 20) settlements.length = 20;
+}
+
 async function handleApi(req, res, url) {
   const json = (code, body) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(body)); };
   if (url.pathname === "/api/config") {
@@ -609,9 +635,22 @@ async function handleApi(req, res, url) {
       canPay: Boolean(process.env.BUYER_WALLET_PRIVATE_KEY),
     });
   }
+  if (url.pathname === "/api/prices" && req.method === "GET") {
+    return json(200, { prices: PRICES, chain: "Monad Testnet" });
+  }
+  if (url.pathname === "/api/settlements" && req.method === "GET") {
+    return json(200, { settlements });
+  }
   if (url.pathname === "/api/wallets") {
     const [buyer, seller] = await Promise.all([walletBalances(BUYER_ADDRESS), walletBalances(SELLER_ADDRESS)]);
     return json(200, { buyer, seller });
+  }
+  if (url.pathname === "/api/transfers" && req.method === "GET") {
+    const [buyer, seller] = await Promise.all([walletBalances(BUYER_ADDRESS), walletBalances(SELLER_ADDRESS)]);
+    return json(200, {
+      buyer: buyer ? buyer.txs : [],
+      seller: seller ? seller.txs : [],
+    });
   }
   if (url.pathname === "/api/pay" && req.method === "POST") {
     const body = JSON.parse(await readBody(req));
@@ -620,7 +659,9 @@ async function handleApi(req, res, url) {
     try {
       const { transferUsdc } = await import("./wallet/transfer.mjs");
       const result = await transferUsdc({ to: SELLER_ADDRESS, amount });
-      return json(200, { ok: true, ...result });
+      const path = typeof body.path === "string" ? body.path.slice(0, 300) : "";
+      rememberSettlement({ at: new Date().toISOString(), amount: result.amount, path, txHash: result.txHash, explorer: result.explorer, from: result.from, to: result.to });
+      return json(200, { ok: true, path, ...result });
     } catch (err) {
       return json(err.status || 500, { ok: false, error: err.message || "Payment failed" });
     }

@@ -279,7 +279,10 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 .pop-link { display: block; margin-top: 8px; color: var(--accent); font-size: 0.82rem; }
 .pop-link[hidden] { display: none; }
 .tx-h { margin-top: 8px; font-size: 0.72rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; }
-.tx { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px solid var(--rule-soft); color: var(--ink); font-size: 0.8rem; }
+.tx { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px solid var(--rule-soft); font-size: 0.8rem; }
+.tx.out { color: var(--negative); }
+.tx.in { color: var(--positive); }
+.tx .amt { font-variant-numeric: tabular-nums; font-weight: 600; }
 .tx span:last-child { font: 0.75rem var(--mono); color: var(--ink-soft); }
 .tx-empty { color: var(--ink-faint); font-size: 0.8rem; padding-top: 4px; }
 
