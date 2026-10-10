@@ -56,7 +56,27 @@ const MODES = {
   search: { label: "Search", token: "MapleLabsBot-Search", why: "Look something up, for a search index or to answer one question" },
   train: { label: "Train", token: "MapleLabsBot-Train", why: "Collect a bundle of posts to train on" },
 };
-const ua = (mode) => `Mozilla/5.0 (compatible; ${MODES[mode].token}/1.0; +https://github.com/dhru7777/AgentGate)`;
+// The brain tag sits right after the token, before the long URL, so it survives the live
+// gate's 100 char truncation of the User-Agent it logs. This is how the gate log, and the
+// demo's own /api/log, can show which model actually drove a given request.
+function ua(mode, brand, model) {
+  const tag = brand === "openai" ? `brain=openai:${model}` : brand === "anthropic" ? `brain=anthropic:${model}` : "brain=script";
+  return `Mozilla/5.0 (compatible; ${MODES[mode].token}/1.0; ${tag}) +https://github.com/dhru7777/AgentGate`;
+}
+
+// The reverse of the tag above, read back out of a logged User-Agent string for the gate log table.
+function modelFromUa(uaString) {
+  const m = (uaString || "").match(/brain=([^)]+)/);
+  if (!m) return "";
+  const value = m[1];
+  if (value === "script") return "MapleLabsBot script";
+  const sep = value.indexOf(":");
+  if (sep < 0) return value;
+  const vendor = value.slice(0, sep);
+  const model = value.slice(sep + 1);
+  const label = vendor === "openai" ? "ChatGPT" : vendor === "anthropic" ? "Claude" : vendor;
+  return `${label} (${model})`;
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------- robots.txt (RFC 9309-style matching) ----------
@@ -121,13 +141,13 @@ const words = (s) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length 
 const score = (text, q) => { const set = new Set(words(text)); return words(q).filter((w) => set.has(w)).length; };
 
 // ---------- the live site: fetch, pay (simulated), build the bundle ----------
-function fetcher(mode, emit, stats) {
+function fetcher(mode, brand, model, emit, stats) {
   let n = 0;
   return async (path, kind, label) => {
     const url = path.startsWith("http") ? path : SITE + path;
     if (new URL(url).origin !== SITE) throw new Error("MapleLabsBot only reads " + SITE);
     const t0 = Date.now();
-    const res = await fetch(url, { headers: { "User-Agent": ua(mode), Accept: "text/html,text/plain,application/json;q=0.9,*/*;q=0.5" }, redirect: "follow" });
+    const res = await fetch(url, { headers: { "User-Agent": ua(mode, brand, model), Accept: "text/html,text/plain,application/json;q=0.9,*/*;q=0.5" }, redirect: "follow" });
     const body = await res.text();
     n += 1;
     stats.requests += 1;
@@ -166,7 +186,7 @@ async function buildBundle(bundle, question) {
 async function runScripted({ mode, question, respectRobots, bundleChoice }, emit) {
   const m = MODES[mode];
   const stats = { requests: 0, served: 0, blocked: 0 };
-  const step = fetcher(mode, emit, stats);
+  const step = fetcher(mode, "maplelabs", null, emit, stats);
   const scriptName = mode === "train" ? "MapleLabsBot's training script" : "MapleLabsBot's search script";
   emit({ type: "start", mode, label: m.label, why: m.why, token: m.token, brain: `${scriptName}, a fixed sequence, no model call`, brand: "maplelabs" });
 
@@ -289,7 +309,7 @@ async function anthropicCall(messages, system, mode) {
 async function runAgent({ mode, question, respectRobots, bundleChoice }, emit) {
   const m = MODES[mode];
   const stats = { requests: 0, served: 0, blocked: 0 };
-  const step = fetcher(mode, emit, stats);
+  const step = fetcher(mode, "anthropic", ANTHROPIC_MODEL, emit, stats);
   emit({ type: "start", mode, label: m.label, why: m.why, token: m.token, brain: `live call to ${ANTHROPIC_MODEL} (Anthropic)`, brand: "anthropic" });
 
   const system = systemPrompt({ mode, brand: "anthropic", respectRobots, question });
@@ -387,7 +407,7 @@ async function openaiCall(messages, system, mode) {
 async function runOpenAIAgent({ mode, question, respectRobots }, emit) {
   const m = MODES[mode];
   const stats = { requests: 0, served: 0, blocked: 0 };
-  const step = fetcher(mode, emit, stats);
+  const step = fetcher(mode, "openai", OPENAI_MODEL, emit, stats);
   emit({ type: "start", mode, label: m.label, why: m.why, token: m.token, brain: `live call to ${OPENAI_MODEL} (OpenAI)`, brand: "openai" });
 
   const system = systemPrompt({ mode, brand: "openai", respectRobots, question });
@@ -525,7 +545,10 @@ async function handleApi(req, res, url) {
   if (url.pathname === "/api/log") {
     if (!ADMIN_KEY) return json(200, { rows: [] });
     const data = await siteJson("/api/analytics?range=week");
-    const rows = (data.recent || []).filter((r) => (/maplelabsbot/i.test(r.ua || "") || r.agent === "MapleLabsBot") && !/verify/i.test(r.ua || "")).slice(0, 40);
+    const rows = (data.recent || [])
+      .filter((r) => (/maplelabsbot/i.test(r.ua || "") || r.agent === "MapleLabsBot") && !/verify/i.test(r.ua || ""))
+      .slice(0, 40)
+      .map((r) => ({ ...r, model: modelFromUa(r.ua) }));
     return json(200, { rows });
   }
   if (url.pathname === "/api/run" && req.method === "POST") {

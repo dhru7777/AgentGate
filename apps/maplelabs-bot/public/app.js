@@ -25,6 +25,7 @@ async function init() {
   state.brains = cfg.brains;
   state.prices = cfg.prices;
   state.canControl = cfg.canControl;
+  state.requiresPolicyKey = cfg.requiresPolicyKey;
 
   $("#site").textContent = cfg.site.replace("https://", "");
   $("#iframePath").textContent = cfg.site.replace("https://", "");
@@ -81,6 +82,9 @@ function setBrain(id) {
   state.brain = id;
   document.querySelectorAll(".pick").forEach((b) => b.classList.toggle("on", b.dataset.brain === id));
   $("#brainTag").textContent = state.brain === "maplelabs" ? "fixed script" : pickWhy(id, { brains: state.brains });
+  // The pane itself darkens toward whichever brand is currently picked. Past messages keep
+  // the theme they were sent under regardless, this only changes the chrome going forward.
+  document.querySelector(".chat").dataset.brain = id;
 }
 
 async function loadPolicy() { paintPolicy((await (await fetch("/api/policy")).json()).mode); }
@@ -92,12 +96,27 @@ function paintPolicy(mode) {
     : mode === "charge" ? "robots.txt allows it. Posts answer HTTP 402 until paid."
     : "robots.txt disallows it. A bot that obeys never asks for a post.";
 }
+function policyKeyHeader() {
+  if (!state.requiresPolicyKey) return {};
+  let key = sessionStorage.getItem("maplelabs.policyKey");
+  if (!key) {
+    key = prompt("Changing the live Free/Charge/Block policy needs the demo key. Ask the site owner for it.") || "";
+    sessionStorage.setItem("maplelabs.policyKey", key);
+  }
+  return { "x-demo-key": key };
+}
+
 async function setPolicy(mode) {
   paintPolicy(mode);
   state.running = true; $("#send").disabled = true;
   $("#policyHint").textContent = "Applying on the live site, this can take up to a minute.";
-  const r = await (await fetch("/api/policy", { method: "POST", body: JSON.stringify({ mode }) })).json();
+  const r = await (await fetch("/api/policy", { method: "POST", headers: policyKeyHeader(), body: JSON.stringify({ mode }) })).json();
   state.running = false; $("#send").disabled = false;
+  if (r.error) {
+    sessionStorage.removeItem("maplelabs.policyKey");
+    $("#policyHint").textContent = r.error;
+    return;
+  }
   paintPolicy(r.mode);
   if (!r.applied) $("#policyHint").textContent = "Saved, but the site has not picked it up yet. Try again in a few seconds.";
 }
@@ -188,7 +207,7 @@ async function pollLog() {
     body.innerHTML = rows.map((r) => {
       const id = r.ts + r.path; const fresh = !first && !state.seen.has(id); state.seen.add(id);
       const robots = r.robots ? `<span class="pill ${r.robots === "allowed" ? "s200" : "s402"}">${r.robots}</span>` : "";
-      return `<tr class="${fresh ? "fresh" : ""}"><td>${new Date(r.ts).toLocaleTimeString()}</td><td>${PURPOSE[r.purpose] || r.purpose || ""}</td><td title="${esc(r.path)}">${esc(r.path)}</td><td><span class="pill ${cls(r.status)}">${r.status}</span></td><td>${robots}</td></tr>`;
+      return `<tr class="${fresh ? "fresh" : ""}"><td>${new Date(r.ts).toLocaleTimeString()}</td><td>${esc(r.model || "")}</td><td>${PURPOSE[r.purpose] || r.purpose || ""}</td><td title="${esc(r.path)}">${esc(r.path)}</td><td><span class="pill ${cls(r.status)}">${r.status}</span></td><td>${robots}</td></tr>`;
     }).join("");
   } catch { $("#logState").textContent = "offline"; }
 }

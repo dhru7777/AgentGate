@@ -173,3 +173,51 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
   .grid { grid-template-columns: 1fr; }
   .chat { margin-right: 0; margin-bottom: 14px; }
 }
+
+/* ===== Picking Claude or ChatGPT darkens the whole chat pane to something closer to that
+   product's own dark mode: background, composer, input, chips. This is a color and layout
+   reference, not a copy of either app's actual chrome (no sidebar, no menu items, no logo). ===== */
+.chat[data-brain="anthropic"] {
+  background: #262220;
+  border-color: #3a332d;
+}
+.chat[data-brain="anthropic"] .pane-title { border-color: #3a332d; color: #e8e3da; }
+.chat[data-brain="anthropic"] .max-btn { background: #332e2a; border-color: #4a423a; color: #cfc7bc; }
+.chat[data-brain="anthropic"] .mode, .chat[data-brain="anthropic"] .pick { background: #332e2a; border-color: #4a423a; color: #e8e3da; }
+.chat[data-brain="anthropic"] .mode span, .chat[data-brain="anthropic"] .pick span { color: #a79e92; }
+.chat[data-brain="anthropic"] .composer { border-color: #3a332d; }
+.chat[data-brain="anthropic"] .check { color: #a79e92; }
+.chat[data-brain="anthropic"] .row input { background: #332e2a; border-color: #4a423a; color: #e8e3da; }
+.chat[data-brain="anthropic"] .row input::placeholder { color: #8a8178; }
+.chat[data-brain="anthropic"] #send { background: #ca7756; }
+.chat[data-brain="anthropic"] .suggest button { background: #332e2a; border-color: #4a423a; color: #cfc7bc; }
+.chat[data-brain="anthropic"] .msg.me { background: #3a332d; }
+.chat[data-brain="anthropic"] .bot.brand-maplelabs .answer,
+.chat[data-brain="anthropic"] .bot.brand-openai .avatar::after { background: #e8e3da; }
+
+.chat[data-brain="openai"] {
+  background: #0f0f10;
+  border-color: #2a2a2c;
+}
+.chat[data-brain="openai"] .pane-title { border-color: #2a2a2c; color: #ececec; }
+.chat[data-brain="openai"] .max-btn { background: #1e1e1f; border-color: #333335; color: #c6c6c6; }
+.chat[data-brain="openai"] .mode, .chat[data-brain="openai"] .pick { background: #1e1e1f; border-color: #333335; color: #ececec; }
+.chat[data-brain="openai"] .mode span, .chat[data-brain="openai"] .pick span { color: #8e8e90; }
+.chat[data-brain="openai"] .composer { border-color: #2a2a2c; }
+.chat[data-brain="openai"] .check { color: #8e8e90; }
+.chat[data-brain="openai"] .row input { background: #1e1e1f; border-color: #333335; color: #ececec; }
+.chat[data-brain="openai"] .row input::placeholder { color: #707072; }
+.chat[data-brain="openai"] #send { background: #ececec; color: #0f0f10; }
+.chat[data-brain="openai"] .suggest button { background: #1e1e1f; border-color: #333335; color: #c6c6c6; }
+.chat[data-brain="openai"] .msg.me { background: #2a2a2c; }
+.chat[data-brain="openai"] .bot.brand-anthropic { background: #1a1816; }
+
+/* Readable text for a message rendered in a brand it does not match (switched brain mid-chat). */
+.chat[data-brain="anthropic"] .bot.brand-openai .aside,
+.chat[data-brain="anthropic"] .bot.brand-openai .answer,
+.chat[data-brain="anthropic"] .bot.brand-maplelabs .steps,
+.chat[data-brain="anthropic"] .aside { color: #e8e3da; }
+.chat[data-brain="openai"] .bot.brand-anthropic .aside,
+.chat[data-brain="openai"] .bot.brand-anthropic .answer,
+.chat[data-brain="openai"] .bot.brand-maplelabs .steps,
+.chat[data-brain="openai"] .aside { color: #ececec; }
