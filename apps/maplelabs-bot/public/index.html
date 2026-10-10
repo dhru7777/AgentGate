@@ -14,21 +14,25 @@
     <button class="dots" id="dotsBtn" type="button" aria-label="Boards">⋮</button>
     <div class="dots-menu" id="dotsMenu" hidden>
       <div class="dots-title">Boards under MapleLabsBot</div>
-      <div class="dots-row"><code>MapleLabsBot-Search</code><span>search index + one-off lookups</span></div>
-      <div class="dots-row"><code>MapleLabsBot-Train</code><span>bulk collection, paid bundle</span></div>
+      <div class="dots-row"><code>MapleLabsBot-Search</code><span>search script or a real model, your choice</span></div>
+      <div class="dots-row"><code>MapleLabsBot-Train</code><span>training script or a real model, your choice</span></div>
     </div>
   </div>
   <div class="site"><span class="dot" id="siteDot"></span><span id="site">…</span></div>
 </header>
 <main class="grid">
   <section class="pane chat">
-    <div class="pane-title">The bot <span class="muted">what it decides and does</span></div>
+    <div class="pane-title">
+      <span>The bot <span class="muted">what it decides and does</span></span>
+      <button class="max-btn" data-pane="chat" type="button" aria-label="Maximize this pane">⤢</button>
+    </div>
     <div class="modes" id="modes"></div>
+    <div class="brains" id="brains"></div>
     <div class="thread" id="thread"></div>
     <form class="composer" id="form">
       <label class="check"><input type="checkbox" id="respect" checked> Respect robots.txt</label>
       <div class="row">
-        <input id="q" autocomplete="off" placeholder="Ask it something about the blog…" required>
+        <input id="q" autocomplete="off" placeholder="Ask it something about the blog..." required>
         <button id="send" type="submit">Send</button>
       </div>
       <div class="suggest" id="suggest"></div>
@@ -37,32 +41,40 @@
 
   <section class="right">
     <div class="pane site-top">
-      <div class="pane-title">The gate <span class="muted">what the site sees, live</span></div>
-      <div class="card">
-        <div class="card-h">Policy for MapleLabsBot</div>
-        <div class="seg" id="policy">
-          <button data-mode="free">Free</button><button data-mode="charge">Charge</button><button data-mode="block">Block</button>
-        </div>
-        <div class="hint" id="policyHint"></div>
+      <div class="pane-title">
+        <span>The gate <span class="muted">what the site sees, live</span></span>
+        <button class="max-btn" data-pane="gate" type="button" aria-label="Maximize this pane">⤢</button>
       </div>
-      <div class="card">
-        <div class="card-h">This request</div>
-        <div class="flow" id="flow">
-          <div class="node" data-k="robots">robots.txt</div><i>→</i>
-          <div class="node" data-k="llms">llms.txt</div><i>→</i>
-          <div class="node" data-k="sitemap">sitemap.xml</div><i>→</i>
-          <div class="node" data-k="post">post</div>
+      <div class="scroller">
+        <div class="card">
+          <div class="card-h">Policy for MapleLabsBot</div>
+          <div class="seg" id="policy">
+            <button data-mode="free">Free</button><button data-mode="charge">Charge</button><button data-mode="block">Block</button>
+          </div>
+          <div class="hint" id="policyHint"></div>
         </div>
-        <div class="kpis"><div><b id="kReq">0</b><span>requests</span></div><div><b id="kOk">0</b><span>served</span></div><div><b id="kBlock">0</b><span>blocked 402</span></div></div>
-      </div>
-      <div class="card grow">
-        <div class="card-h">What the gate logged <span class="muted" id="logState"></span></div>
-        <div class="table-wrap"><table id="log"><thead><tr><th>Time</th><th>Purpose</th><th>Path</th><th>Status</th><th>robots.txt</th></tr></thead><tbody></tbody></table></div>
+        <div class="card">
+          <div class="card-h">This request</div>
+          <div class="flow" id="flow">
+            <div class="node" data-k="robots">robots.txt</div><i>&rarr;</i>
+            <div class="node" data-k="llms">llms.txt</div><i>&rarr;</i>
+            <div class="node" data-k="sitemap">sitemap.xml</div><i>&rarr;</i>
+            <div class="node" data-k="post">post</div>
+          </div>
+          <div class="kpis"><div><b id="kReq">0</b><span>requests</span></div><div><b id="kOk">0</b><span>served</span></div><div><b id="kBlock">0</b><span>blocked 402</span></div></div>
+        </div>
+        <div class="card grow">
+          <div class="card-h">What the gate logged <span class="muted" id="logState"></span></div>
+          <div class="table-wrap"><table id="log"><thead><tr><th>Time</th><th>Purpose</th><th>Path</th><th>Status</th><th>robots.txt</th></tr></thead><tbody></tbody></table></div>
+        </div>
       </div>
     </div>
     <div class="beam" id="beam"><span id="beamLabel"></span></div>
     <div class="pane site-bottom">
-      <div class="pane-title">Your blog, live <span class="muted" id="iframePath">dheeraj-work.netlify.app</span></div>
+      <div class="pane-title">
+        <span>Your blog, live <span class="muted" id="iframePath">dheeraj-work.netlify.app</span></span>
+        <button class="max-btn" data-pane="site" type="button" aria-label="Maximize this pane">⤢</button>
+      </div>
       <iframe id="siteFrame" src="about:blank" title="Live blog"></iframe>
     </div>
   </section>
