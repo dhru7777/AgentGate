@@ -2,12 +2,17 @@ const $ = (s) => document.querySelector(s);
 const state = { mode: "search", modes: {}, prices: {}, running: false, seen: new Set(), canControl: false };
 const PURPOSE = { training: "Training", search: "Search", user: "User search", unidentified: "Unidentified" };
 
+function brainLabelFor(mode) {
+  const b = state.brains[mode];
+  return b ? `live · ${b.model} (${b.vendor === "openai" ? "OpenAI" : "Anthropic"})` : "scripted fallback (no API key)";
+}
+
 async function init() {
   const cfg = await (await fetch("/api/config")).json();
-  state.modes = cfg.modes; state.prices = cfg.prices; state.canControl = cfg.canControl;
+  state.modes = cfg.modes; state.prices = cfg.prices; state.canControl = cfg.canControl; state.brains = cfg.brains;
   $("#site").textContent = cfg.site.replace("https://", "");
   $("#iframePath").textContent = cfg.site.replace("https://", "");
-  $("#brainTag").textContent = cfg.hasBrain ? `live calls · ${cfg.model}` : "scripted fallback (no API key)";
+  $("#brainTag").textContent = brainLabelFor(state.mode);
   $("#modes").innerHTML = Object.entries(cfg.modes).map(([id, m]) => `<button class="mode" data-id="${id}"><b>${m.label}</b><span>${m.why}</span></button>`).join("");
   $("#modes").addEventListener("click", (e) => { const b = e.target.closest(".mode"); if (b) setMode(b.dataset.id); });
   $("#suggest").innerHTML = ["What is x402?", "Explain ERC-8004", "Why is double spending a problem?", "What do you think of liquid staking?"].map((s) => `<button type="button">${s}</button>`).join("");
@@ -22,6 +27,7 @@ async function init() {
 function setMode(id) {
   state.mode = id;
   document.querySelectorAll(".mode").forEach((b) => b.classList.toggle("on", b.dataset.id === id));
+  $("#brainTag").textContent = brainLabelFor(id);
 }
 
 async function loadPolicy() { paintPolicy((await (await fetch("/api/policy")).json()).mode); }

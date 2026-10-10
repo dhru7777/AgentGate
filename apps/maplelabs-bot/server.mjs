@@ -20,12 +20,26 @@ import { readFile } from "node:fs/promises";
 import { extname, join, normalize, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Load .env.local if present (never committed — see .gitignore). No npm dependency.
+try {
+  const { readFileSync } = await import("node:fs");
+  const envPath = join(dirname(fileURLToPath(import.meta.url)), ".env.local");
+  for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+  }
+} catch { /* no .env.local, that's fine */ }
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5180);
 const SITE = (process.env.SITE || "https://dheeraj-work.netlify.app").replace(/\/$/, "");
 const ADMIN_KEY = process.env.ADMIN_KEY || ""; // the blog's analytics password — only needed for the policy switch and the gate log
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+const OPENAI_KEY = process.env.OPENAI_API_KEY || "";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5";
+// Which vendor drives which mode. Both read the same tools and the same system prompt shape.
+const BRAIN_FOR_MODE = { search: "openai", train: "anthropic" };
 const RULE_ID = "maplelabs";
 const PUBLIC = join(HERE, "public");
 const POLITE_DELAY_MS = 350;
@@ -247,7 +261,7 @@ async function anthropicCall(messages, system) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1024, system, tools: TOOLS, messages }),
+    body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 1024, system, tools: TOOLS, messages }),
   });
   if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${(await res.text()).slice(0, 300)}`);
   return res.json();
@@ -257,7 +271,7 @@ async function runAgent({ mode, question, respectRobots, bundleChoice }, emit) {
   const m = MODES[mode];
   const stats = { requests: 0, served: 0, blocked: 0 };
   const step = fetcher(mode, emit, stats);
-  emit({ type: "start", mode, label: m.label, why: m.why, token: m.token, brain: `live call to ${MODEL}` });
+  emit({ type: "start", mode, label: m.label, why: m.why, token: m.token, brain: `live call to ${ANTHROPIC_MODEL} (Anthropic)` });
 
   const system = systemPrompt({ mode, respectRobots, question });
   const messages = [{ role: "user", content: question }];
@@ -304,7 +318,8 @@ async function runAgent({ mode, question, respectRobots, bundleChoice }, emit) {
           const bundle = await buildBundle(tier, question);
           emit({ type: "paid", tier: paid.tier.label, charged: paid.charged, hours: PRICES.train.hours });
           emit({ type: "bundle", bundle });
-          result = `Paid (simulated demo wallet): ${paid.tier.label}, $${paid.charged}, valid ${PRICES.train.hours}h. Bundle delivered: ${bundle.postCount} posts, built from a local snapshot of the site's own source files, not fetched around the paywall. Mention this plainly in your final answer.`;
+          const titles = bundle.posts.map((p) => `- ${p.title}`).join("\n");
+          result = `Paid (simulated demo wallet): ${paid.tier.label}, $${paid.charged}, valid ${PRICES.train.hours}h. Bundle delivered: ${bundle.postCount} posts, built from a local snapshot of the site's own source files, not fetched around the paywall. Titles in the bundle:\n${titles}\n\nMention the payment plainly in your final answer, and you may summarize or reference what's in this list, but you do not have the full text of these posts — do not invent details beyond a title.`;
         }
       } else if (call.name === "finish") {
         emit({ type: "answer", text: call.input.answer, sources: (call.input.sources || []).map((url) => ({ url, title: url })) });
@@ -318,9 +333,94 @@ async function runAgent({ mode, question, respectRobots, bundleChoice }, emit) {
   emit({ type: "done", mode, ...stats });
 }
 
+// ---------- OpenAI-flavored agent loop (OPENAI_API_KEY set, used for Search mode) ----------
+function openaiTools(mode) {
+  // Same tools as the Anthropic loop, reshaped for Chat Completions function calling.
+  // pay_for_training_bundle is left out for Search mode — it has no wallet for a single lookup.
+  return TOOLS.filter((t) => mode === "train" || t.name !== "pay_for_training_bundle").map((t) => ({
+    type: "function",
+    function: { name: t.name, description: t.description, parameters: t.input_schema },
+  }));
+}
+
+async function openaiCall(messages, system, mode) {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${OPENAI_KEY}` },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      max_completion_tokens: 2500,
+      reasoning_effort: "low", // keep the budget for the answer, not internal reasoning
+      messages: [{ role: "system", content: system }, ...messages],
+      tools: openaiTools(mode),
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenAI API ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  return res.json();
+}
+
+async function runOpenAIAgent({ mode, question, respectRobots }, emit) {
+  const m = MODES[mode];
+  const stats = { requests: 0, served: 0, blocked: 0 };
+  const step = fetcher(mode, emit, stats);
+  emit({ type: "start", mode, label: m.label, why: m.why, token: m.token, brain: `live call to ${OPENAI_MODEL} (OpenAI)` });
+
+  const system = systemPrompt({ mode, respectRobots, question });
+  const messages = [{ role: "user", content: question }];
+  let blockedByRobots = false;
+
+  for (let turn = 0; turn < 10; turn++) {
+    const resp = await openaiCall(messages, system, mode);
+    const msg = resp.choices?.[0]?.message;
+    if (!msg) throw new Error("OpenAI returned no message");
+    if (process.env.DEBUG_OPENAI) console.error("OPENAI RESP:", JSON.stringify(resp, null, 2).slice(0, 4000));
+    messages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls });
+    const calls = msg.tool_calls || [];
+    if (calls.length === 0) {
+      emit({ type: "answer", text: msg.content || "(no answer)", sources: [] });
+      break;
+    }
+    for (const call of calls) {
+      let args = {};
+      try { args = JSON.parse(call.function.arguments || "{}"); } catch { /* ignore */ }
+      let result;
+      if (call.function.name === "read_url") {
+        const path = args.path;
+        if (path === "/robots.txt") {
+          const r = await step(path, "robots", "robots.txt");
+          const robots = parseRobots(r.body);
+          const verdict = verdictFor(robots, m.token, "/2026/");
+          emit({ type: "decision", text: verdict.allowed ? `robots.txt allows ${m.token} (${verdict.rule})` : `robots.txt disallows ${m.token} (${verdict.rule})`, allowed: verdict.allowed });
+          if (!verdict.allowed && respectRobots) blockedByRobots = true;
+          result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
+        } else {
+          const kind = path === "/llms.txt" ? "llms" : path.startsWith("/sitemap") ? "sitemap" : /^\/\d{4}\//.test(path) ? "post" : "other";
+          if (kind === "post" && blockedByRobots) {
+            result = "Refused locally: robots.txt disallowed this bot and the operator's switch says to respect it. Do not request any more posts.";
+          } else {
+            const r = await step(path, kind, kind === "post" ? "post" : path.replace("/", ""));
+            if (r.status === 402) emit({ type: "payment", text: "402 Payment Required" });
+            result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
+          }
+        }
+      } else if (call.function.name === "finish") {
+        emit({ type: "answer", text: args.answer, sources: (args.sources || []).map((url) => ({ url, title: url })) });
+        emit({ type: "done", mode, ...stats });
+        return;
+      } else {
+        result = "Unknown tool for Search mode.";
+      }
+      messages.push({ role: "tool", tool_call_id: call.id, content: String(result) });
+    }
+  }
+  emit({ type: "done", mode, ...stats });
+}
+
 async function run(opts, emit) {
   if (!MODES[opts.mode]) throw new Error("Unknown mode");
-  if (ANTHROPIC_KEY) await runAgent(opts, emit);
+  const vendor = BRAIN_FOR_MODE[opts.mode];
+  if (vendor === "openai" && OPENAI_KEY) await runOpenAIAgent(opts, emit);
+  else if (vendor === "anthropic" && ANTHROPIC_KEY) await runAgent(opts, emit);
   else await runScripted(opts, emit);
 }
 
@@ -354,7 +454,11 @@ function readBody(req) { return new Promise((resolve) => { let b = ""; req.on("d
 async function handleApi(req, res, url) {
   const json = (code, body) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(body)); };
   if (url.pathname === "/api/config") {
-    return json(200, { site: SITE, modes: MODES, prices: PRICES, canControl: Boolean(ADMIN_KEY), hasBrain: Boolean(ANTHROPIC_KEY), model: ANTHROPIC_KEY ? MODEL : null });
+    const brains = {
+      search: OPENAI_KEY ? { vendor: "openai", model: OPENAI_MODEL } : null,
+      train: ANTHROPIC_KEY ? { vendor: "anthropic", model: ANTHROPIC_MODEL } : null,
+    };
+    return json(200, { site: SITE, modes: MODES, prices: PRICES, canControl: Boolean(ADMIN_KEY), brains });
   }
   if (url.pathname === "/api/policy" && req.method === "GET") {
     if (!ADMIN_KEY) return json(200, { mode: null });
@@ -406,4 +510,8 @@ http.createServer(async (req, res) => {
   } catch (err) {
     res.writeHead(err.code === "ENOENT" ? 404 : 500); res.end(err.code === "ENOENT" ? "Not found" : "Error");
   }
-}).listen(PORT, () => console.log(`MapleLabsBot demo on http://localhost:${PORT} (crawls ${SITE}; policy switch ${ADMIN_KEY ? "on" : "off"}; brain ${ANTHROPIC_KEY ? `live (${MODEL})` : "scripted fallback — set ANTHROPIC_API_KEY for real decisions"})`));
+}).listen(PORT, () => console.log(
+  `MapleLabsBot demo on http://localhost:${PORT} (crawls ${SITE}; policy switch ${ADMIN_KEY ? "on" : "off"}; ` +
+  `search brain: ${OPENAI_KEY ? `live (${OPENAI_MODEL}, OpenAI)` : "scripted fallback"}; ` +
+  `train brain: ${ANTHROPIC_KEY ? `live (${ANTHROPIC_MODEL}, Anthropic)` : "scripted fallback"})`
+));
