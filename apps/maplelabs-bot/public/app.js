@@ -1,5 +1,5 @@
 const $ = (s) => document.querySelector(s);
-const state = { mode: "search", brain: "maplelabs", modes: {}, brains: {}, prices: {}, running: false, seen: new Set(), canControl: false, approveId: 0 };
+const state = { mode: "search", brain: "maplelabs", bundle: "starter", modes: {}, brains: {}, prices: {}, running: false, seen: new Set(), canControl: false, approveId: 0 };
 const PURPOSE = { training: "Training", search: "Search", user: "User search", unidentified: "Unidentified" };
 
 const BRAND = {
@@ -33,7 +33,7 @@ async function init() {
   $("#siteFrame").src = cfg.site;
 
   $("#modes").innerHTML = Object.entries(cfg.modes)
-    .map(([id, m]) => `<button class="mode" data-id="${id}"><b>${m.label}</b><span>${m.why}</span></button>`)
+    .map(([id, m]) => `<button class="mode" role="tab" type="button" data-id="${id}">${m.label}</button>`)
     .join("");
   $("#modes").addEventListener("click", (e) => { const b = e.target.closest(".mode"); if (b) setMode(b.dataset.id); });
 
@@ -41,7 +41,7 @@ async function init() {
     .map((id) => {
       const b = cfg.brains[id];
       const disabled = !b.available;
-      return `<button class="pick" data-brain="${id}" type="button" ${disabled ? "disabled" : ""}><b>${pickLabel(id)}</b><span>${pickWhy(id, cfg)}</span></button>`;
+      return `<button class="pick" data-brain="${id}" type="button" title="${pickWhy(id, cfg)}" ${disabled ? "disabled" : ""}>${pickLabel(id)}</button>`;
     })
     .join("");
   $("#brains").addEventListener("click", (e) => { const b = e.target.closest(".pick"); if (b && !b.disabled) setBrain(b.dataset.brain); });
@@ -51,7 +51,18 @@ async function init() {
     .join("");
   $("#suggest").addEventListener("click", (e) => { if (e.target.tagName === "BUTTON") { $("#q").value = e.target.textContent; $("#q").focus(); } });
 
+  $("#bundles").innerHTML = ["starter", "full"]
+    .map((id) => {
+      const t = cfg.prices.train[id];
+      const size = t.postCap >= 999 ? "every post" : `up to ${t.postCap} posts`;
+      return `<button class="bundle-opt" type="button" data-bundle="${id}"><b>${t.label}</b><span>$${t.usd.toFixed(2)} &middot; ${size} &middot; ${cfg.prices.train.hours}h access</span></button>`;
+    })
+    .join("");
+  $("#bundles").addEventListener("click", (e) => { const b = e.target.closest(".bundle-opt"); if (b) setBundle(b.dataset.bundle); });
+  setBundle("starter");
+
   $("#form").addEventListener("submit", (e) => { e.preventDefault(); send(); });
+  $("#trainForm").addEventListener("submit", (e) => { e.preventDefault(); train(); });
   $("#policy").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && state.canControl) setPolicy(b.dataset.mode); });
   $("#dotsBtn").addEventListener("click", () => { $("#dotsMenu").hidden = !$("#dotsMenu").hidden; });
   document.addEventListener("click", (e) => { if (!e.target.closest(".brand")) $("#dotsMenu").hidden = true; });
@@ -167,14 +178,29 @@ function toggleMax(pane) {
   });
 }
 
+// Search is a conversation with a chosen brain. Train is a one-shot crawl run by the script,
+// ending in a bundle download, so it gets a form and a log instead of a chat.
 function setMode(id) {
   state.mode = id;
-  document.querySelectorAll(".mode").forEach((b) => b.classList.toggle("on", b.dataset.id === id));
+  document.querySelectorAll(".mode").forEach((b) => {
+    b.classList.toggle("on", b.dataset.id === id);
+    b.setAttribute("aria-selected", b.dataset.id === id);
+  });
+  $("#modeWhy").textContent = state.modes[id].why;
+  const chat = document.querySelector(".chat");
+  chat.dataset.mode = id;
+  chat.dataset.brain = id === "train" ? "maplelabs" : state.brain;
+  $("#brainTag").textContent = id === "train" ? "training script" : brainTag();
 }
+function setBundle(id) {
+  state.bundle = id;
+  document.querySelectorAll(".bundle-opt").forEach((b) => b.classList.toggle("on", b.dataset.bundle === id));
+}
+const brainTag = () => (state.brain === "maplelabs" ? "fixed script" : pickWhy(state.brain, { brains: state.brains }));
 function setBrain(id) {
   state.brain = id;
   document.querySelectorAll(".pick").forEach((b) => b.classList.toggle("on", b.dataset.brain === id));
-  $("#brainTag").textContent = state.brain === "maplelabs" ? "fixed script" : pickWhy(id, { brains: state.brains });
+  $("#brainTag").textContent = brainTag();
   // The pane itself darkens toward whichever brand is currently picked. Past messages keep
   // the theme they were sent under regardless, this only changes the chrome going forward.
   document.querySelector(".chat").dataset.brain = id;
@@ -201,10 +227,10 @@ function policyKeyHeader() {
 
 async function setPolicy(mode) {
   paintPolicy(mode);
-  state.running = true; $("#send").disabled = true;
+  setRunning(true);
   $("#policyHint").textContent = "Applying on the live site, this can take up to a minute.";
   const r = await (await fetch("/api/policy", { method: "POST", headers: policyKeyHeader(), body: JSON.stringify({ mode }) })).json();
-  state.running = false; $("#send").disabled = false;
+  setRunning(false);
   if (r.error) {
     sessionStorage.removeItem("maplelabs.policyKey");
     $("#policyHint").textContent = r.error;
@@ -234,14 +260,32 @@ function avatarFor(brand) {
   return `<span class="avatar">M</span>`;
 }
 
+function setRunning(on) {
+  state.running = on;
+  $("#send").disabled = on;
+  $("#trainGo").disabled = on;
+  $("#trainGo").textContent = on ? "Crawling..." : "Start crawl";
+}
+
 async function send() {
   const q = $("#q").value.trim(); if (!q || state.running) return;
-  $("#q").value = ""; state.running = true; $("#send").disabled = true;
+  $("#q").value = "";
   add(esc(q), "msg me");
+  await run($("#thread"), { mode: "search", brain: state.brain, question: q });
+  $("#q").focus();
+}
 
-  const brainAtSend = state.brain;
-  const modeAtSend = state.mode;
-  const bot = add("", `msg bot brand-${brainAtSend}`);
+async function train() {
+  if (state.running) return;
+  $("#trainLog").innerHTML = "";
+  await run($("#trainLog"), { mode: "train", brain: "maplelabs", question: $("#topic").value.trim(), bundleChoice: state.bundle });
+}
+
+async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, bundleChoice }) {
+  setRunning(true);
+  const bot = document.createElement("div");
+  bot.className = `msg bot brand-${brainAtSend}`;
+  target.append(bot);
   bot.innerHTML = `
     <div class="bot-head">${avatarFor(brainAtSend)}<span class="who">${BRAND[brainAtSend].label}</span><span class="who-sub">&middot; ${esc(BRAND[brainAtSend].sub)} &middot; ${esc(state.modes[modeAtSend].label)}</span></div>
     <div class="steps"></div>
@@ -250,7 +294,7 @@ async function send() {
   document.querySelectorAll(".node").forEach((n) => (n.className = "node skip"));
   let req = 0, ok = 0, blocked = 0;
 
-  const res = await fetch("/api/run", { method: "POST", body: JSON.stringify({ mode: modeAtSend, brain: brainAtSend, question: q, respectRobots: $("#respect").checked }) });
+  const res = await fetch("/api/run", { method: "POST", body: JSON.stringify({ mode: modeAtSend, brain: brainAtSend, question: q, bundleChoice, respectRobots: $("#respect").checked }) });
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
   for (;;) {
     const { value, done } = await reader.read(); if (done) break;
@@ -286,10 +330,10 @@ async function send() {
       } else if (ev.type === "error") {
         bot.insertAdjacentHTML("beforeend", `<div class="answer">${esc(ev.text)}</div>`);
       }
-      $("#thread").scrollTop = 1e9;
+      target.scrollTop = 1e9;
     }
   }
-  state.running = false; $("#send").disabled = false; $("#q").focus(); pollLog();
+  setRunning(false); pollLog();
 }
 
 async function pollLog() {

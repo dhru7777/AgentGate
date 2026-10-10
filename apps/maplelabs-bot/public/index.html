@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentGate Preview</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c45c26'/%3E%3Cpath d='M8 21V11l8 7 8-7v10' stroke='white' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='3' fill='%232f4a3a'/%3E%3Cpath d='M8 21V11l8 7 8-7v10' stroke='white' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -48,17 +51,34 @@
       <span>The bot <span class="muted">what it decides and does</span></span>
       <button class="max-btn" data-pane="chat" type="button" aria-label="Maximize this pane">⤢</button>
     </div>
-    <div class="modes" id="modes"></div>
-    <div class="brains" id="brains"></div>
-    <div class="thread" id="thread"></div>
-    <form class="composer" id="form">
+    <div class="journey">
+      <div class="modes" id="modes" role="tablist"></div>
       <label class="check"><input type="checkbox" id="respect" checked> Respect robots.txt</label>
-      <div class="row">
-        <input id="q" autocomplete="off" placeholder="Ask it something about the blog..." required>
-        <button id="send" type="submit">Send</button>
-      </div>
-      <div class="suggest" id="suggest"></div>
-    </form>
+    </div>
+    <p class="mode-why" id="modeWhy"></p>
+
+    <div class="view view-search">
+      <div class="thread" id="thread"></div>
+      <form class="composer" id="form">
+        <div class="brain-row"><span class="brain-label">Answered by</span><div class="brains" id="brains"></div></div>
+        <div class="row">
+          <input id="q" autocomplete="off" placeholder="Ask it something about the blog..." required>
+          <button id="send" type="submit">Send</button>
+        </div>
+        <div class="suggest" id="suggest"></div>
+      </form>
+    </div>
+
+    <div class="view view-train">
+      <form class="train-form" id="trainForm">
+        <div class="field-label">Bundle</div>
+        <div class="bundles" id="bundles"></div>
+        <label class="field-label" for="topic">Focus <span class="muted">optional, ranks posts by topic</span></label>
+        <input id="topic" autocomplete="off" placeholder="e.g. payments, ERC-8004">
+        <button id="trainGo" type="submit">Start crawl</button>
+      </form>
+      <div class="train-log" id="trainLog"><p class="train-empty">The crawl reads robots.txt, llms.txt and the sitemap, then asks for a post. If the gate charges, you approve the payment and download the bundle here.</p></div>
+    </div>
   </section>
 
   <section class="right">
