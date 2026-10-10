@@ -344,29 +344,29 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 .chat[data-brain="anthropic"] .bundle, .chat[data-brain="openai"] .bundle { border-color: var(--deep-rule); }
 .chat[data-brain="anthropic"] .bundle a.dl, .chat[data-brain="openai"] .bundle a.dl { background: var(--on-dark); color: var(--deep); }
 
-/* Flip card: globe/map only on the front, every label and control on the back. */
-.flipcard { perspective: 1000px; padding: 0; height: 250px; }
-.flip-inner { position: relative; width: 100%; height: 100%; transition: transform .6s cubic-bezier(.4,.2,.2,1); transform-style: preserve-3d; }
-.flipcard[data-side="policy"] .flip-inner { transform: rotateY(180deg); }
-.face { position: absolute; inset: 0; padding: 12px 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: var(--surface); display: flex; flex-direction: column; }
-.face.back { transform: rotateY(180deg); }
-/* Soft, light backdrop - not a flat black square - so the globe stays legible against
-   the rest of the paper-toned page instead of looking like a broken dark panel. */
-.face.front { padding: 0; background: radial-gradient(circle at 50% 38%, #eef2f6 0%, var(--surface) 72%); }
-.face .card-h { display: flex; align-items: center; gap: 8px; }
-.flip-btn { margin-left: auto; border: 1px solid var(--rule); background: transparent; color: inherit; border-radius: var(--radius); padding: 2px 10px; font: inherit; font-size: 0.78rem; text-transform: none; letter-spacing: 0; cursor: pointer; }
+/* Globe card: always visible, no flip to policy - that lives in the next card down.
+   The globe itself still flips, between the 3D globe and the 2D map. */
+.globecard .card-h { display: flex; align-items: center; gap: 8px; }
+.globecard .flip-btn { margin-left: auto; }
+.flip-btn { border: 1px solid var(--rule); background: transparent; color: inherit; border-radius: var(--radius); padding: 2px 10px; font: inherit; font-size: 0.78rem; text-transform: none; letter-spacing: 0; cursor: pointer; }
 .flip-btn:hover { background: var(--wash-hover); color: var(--ink); }
-.globe-stage, .globe-stage-2d { flex: 1; min-height: 0; position: relative; cursor: grab; touch-action: none; }
+.globe-flip { perspective: 1000px; height: 190px; }
+.globe-flip-inner { position: relative; width: 100%; height: 100%; transition: transform .6s cubic-bezier(.4,.2,.2,1); transform-style: preserve-3d; }
+.globe-flip[data-side="2d"] .globe-flip-inner { transform: rotateY(180deg); }
+.globe-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: var(--radius); overflow: hidden; }
+.globe-face.back { transform: rotateY(180deg); }
+.globe-stage, .globe-stage-2d { position: absolute; inset: 0; cursor: grab; touch-action: none; background: radial-gradient(circle at 50% 38%, #eef2f6 0%, var(--surface) 72%); }
 .globe-stage canvas, .globe-stage-2d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-/* Small floating toolbar over the globe itself - the only thing on the front face. */
-.globe-overlay { position: absolute; z-index: 2; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; gap: 6px; }
-.seg-sm button { padding: 3px 10px; font-size: 0.72rem; }
-.seg-sm button.on { background: var(--ink); color: var(--on-dark); }
-.flip-btn-ghost { margin-left: auto; background: rgba(255,255,255,.82); backdrop-filter: blur(2px); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 
 .map2d-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .map2d-dots { position: absolute; inset: 0; }
-.map2d-dot { position: absolute; width: 7px; height: 7px; margin: -3.5px; border-radius: 50%; background: #ffb35c; box-shadow: 0 0 8px 3px rgba(255,179,92,.8); }
+.map2d-dot { position: absolute; width: 6px; height: 6px; margin: -3px; border-radius: 50%; transition: background .4s ease; }
+.map2d-dot.s200 { background: #3f8f5f; }
+.map2d-dot.s402 { background: #c0392b; }
+.map2d-dot.latest { width: 9px; height: 9px; margin: -4.5px; animation: map2dBreathe 1.6s ease-in-out infinite; }
+.map2d-dot.latest.s200 { box-shadow: 0 0 10px 4px rgba(63,143,95,.8); }
+.map2d-dot.latest.s402 { box-shadow: 0 0 10px 4px rgba(192,57,43,.8); }
+@keyframes map2dBreathe { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
 .map2d-pulse { position: absolute; width: 8px; height: 8px; margin: -4px; border-radius: 50%; pointer-events: none; animation: map2dPulse 1.3s ease-out forwards; }
 .map2d-pulse.s200 { background: radial-gradient(circle, rgba(63,143,95,.9), rgba(63,143,95,0) 70%); box-shadow: 0 0 10px 4px rgba(63,143,95,.7); }
 .map2d-pulse.s402 { background: radial-gradient(circle, rgba(192,57,43,.9), rgba(192,57,43,0) 70%); box-shadow: 0 0 10px 4px rgba(192,57,43,.7); }

@@ -401,11 +401,12 @@ async function pollLog() {
     $("#logState").textContent = rows.length ? `${rows.length} recent` : "nothing yet";
     const body = $("#log tbody"); const first = state.seen.size === 0;
     body.innerHTML = rows.map((r) => {
-      const id = r.ts + r.path; const fresh = !first && !state.seen.has(id); state.seen.add(id); if (fresh && window.globePulse) window.globePulse(r.status);
+      const id = r.ts + r.path; const fresh = !first && !state.seen.has(id); state.seen.add(id);
       const robots = r.robots ? `<span class="pill ${r.robots === "allowed" ? "s200" : "s402"}">${r.robots}</span>` : "";
       const statusClass = cls(r.status, r.path);
       return `<tr class="${fresh ? "fresh" : ""}"><td>${new Date(r.ts).toLocaleTimeString()}</td><td>${esc(r.model || "")}</td><td>${PURPOSE[r.purpose] || r.purpose || ""}</td><td title="${esc(r.path)}">${esc(r.path)}</td><td><span class="pill ${statusClass}">${r.status}</span></td><td>${robots}</td></tr>`;
     }).join("");
+    if (window.globeSyncRows) window.globeSyncRows(rows);
   } catch { $("#logState").textContent = "offline"; }
 }
 

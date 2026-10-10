@@ -93,32 +93,28 @@
         <button class="max-btn" data-pane="gate" type="button" aria-label="Maximize this pane">⤢</button>
       </div>
       <div class="scroller">
-        <div class="card flipcard" id="flipCard" data-side="globe">
-          <div class="flip-inner">
-            <div class="face front">
-              <div class="globe-overlay">
-                <div class="seg seg-sm" id="globeMode">
-                  <button data-view="3d" type="button" aria-label="3D globe">3D</button><button data-view="2d" type="button" aria-label="2D map">2D</button>
-                </div>
-                <button class="flip-btn flip-btn-ghost" type="button" data-flip aria-label="Show policy and details">Info &#8635;</button>
+        <div class="card globecard">
+          <div class="card-h">Traffic <span class="muted">real requests, placed where the blog saw them from &middot; drag to spin &middot; only the newest glows</span>
+            <button class="flip-btn" type="button" id="globeFlip" aria-label="Flip to 2D map">2D &#8635;</button>
+          </div>
+          <div class="globe-flip" id="globeFlip3d2d" data-side="3d">
+            <div class="globe-flip-inner">
+              <div class="globe-face front">
+                <div class="globe-stage" id="globeStage"></div>
               </div>
-              <div class="globe-stage" id="globeStage"></div>
-              <div class="globe-stage-2d" id="globeStage2d" hidden></div>
-            </div>
-            <div class="face back">
-              <div class="card-h">Traffic <span class="muted">drag to spin on the globe</span>
-                <button class="flip-btn" type="button" data-flip aria-label="Show globe">Globe &#8635;</button></div>
-              <p class="hint">Each dot is a real request, placed where the blog saw it from. <span class="pill s402">Red</span> is payment required (402); if that same visitor goes on to pay, its dot turns <span class="pill s200">green</span>. Only the newest request glows.</p>
-              <div class="card-h">Policy for MapleLabsBot</div>
-              <div class="seg" id="policy">
-                <button data-mode="free">Free</button><button data-mode="charge">Charge</button><button data-mode="block">Block</button>
+              <div class="globe-face back">
+                <div class="globe-stage-2d" id="globeStage2d"></div>
               </div>
-              <div class="hint" id="policyHint"></div>
             </div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-h">This request <span class="muted">4 checks, in order, every time</span></div>
+        <div class="card grow">
+          <div class="card-h">Policy for MapleLabsBot</div>
+          <div class="seg" id="policy">
+            <button data-mode="free">Free</button><button data-mode="charge">Charge</button><button data-mode="block">Block</button>
+          </div>
+          <div class="hint" id="policyHint"></div>
+          <div class="card-h" style="margin-top:14px">This request <span class="muted">4 checks, in order, every time</span></div>
           <div class="flow" id="flow">
             <div class="node" data-k="robots" title="Is MapleLabsBot allowed here at all? A bot that obeys stops right here if not.">robots.txt</div><i>&rarr;</i>
             <div class="node" data-k="llms" title="What are the terms? Price, network, and how to pay, in plain text for agents.">llms.txt</div><i>&rarr;</i>
@@ -127,9 +123,7 @@
           </div>
           <p class="hint">Hover a step for what it checks. Green = served (200), red = payment required (402). A real post request only happens after the first three pass.</p>
           <div class="kpis"><div><b id="kReq">0</b><span>requests</span></div><div><b id="kOk">0</b><span>served</span></div><div><b id="kBlock">0</b><span>blocked 402</span></div></div>
-        </div>
-        <div class="card grow">
-          <div class="card-h">What the gate logged <span class="muted" id="logState"></span></div>
+          <div class="card-h" style="margin-top:14px">What the gate logged <span class="muted" id="logState"></span></div>
           <div class="table-wrap"><table id="log"><thead><tr><th>Time</th><th>Model</th><th>Purpose</th><th>Path</th><th>Status</th><th>robots.txt</th></tr></thead><tbody></tbody></table></div>
         </div>
       </div>
