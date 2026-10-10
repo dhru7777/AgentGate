@@ -51,6 +51,7 @@
       <span>The bot <span class="muted">what it decides and does</span></span>
       <button class="max-btn" data-pane="chat" type="button" aria-label="Maximize this pane">⤢</button>
     </div>
+    <p class="hint journey-intro">Ask a question or start a crawl, and watch <strong>The gate</strong> (right) light up in real time: robots.txt, then llms.txt, then sitemap.xml, then the post. A 402 means payment is required before the content is served &mdash; Train mode can pay a simulated demo price automatically; a real on-chain 402 always waits for a human to click Approve first, never sent automatically.</p>
     <div class="journey">
       <div class="modes" id="modes" role="tablist"></div>
       <label class="check"><input type="checkbox" id="respect" checked> Respect robots.txt</label>
@@ -96,13 +97,14 @@
           <div class="hint" id="policyHint"></div>
         </div>
         <div class="card">
-          <div class="card-h">This request</div>
+          <div class="card-h">This request <span class="muted">4 checks, in order, every time</span></div>
           <div class="flow" id="flow">
-            <div class="node" data-k="robots">robots.txt</div><i>&rarr;</i>
-            <div class="node" data-k="llms">llms.txt</div><i>&rarr;</i>
-            <div class="node" data-k="sitemap">sitemap.xml</div><i>&rarr;</i>
-            <div class="node" data-k="post">post</div>
+            <div class="node" data-k="robots" title="Is MapleLabsBot allowed here at all? A bot that obeys stops right here if not.">robots.txt</div><i>&rarr;</i>
+            <div class="node" data-k="llms" title="What are the terms? Price, network, and how to pay, in plain text for agents.">llms.txt</div><i>&rarr;</i>
+            <div class="node" data-k="sitemap" title="Where is the content? A list of post URLs to choose from.">sitemap.xml</div><i>&rarr;</i>
+            <div class="node" data-k="post" title="The actual page. Free if the gate's policy is Free; otherwise HTTP 402 until paid.">post</div>
           </div>
+          <p class="hint">Hover a step for what it checks. Green = served (200), red = payment required (402). A real post request only happens after the first three pass.</p>
           <div class="kpis"><div><b id="kReq">0</b><span>requests</span></div><div><b id="kOk">0</b><span>served</span></div><div><b id="kBlock">0</b><span>blocked 402</span></div></div>
         </div>
         <div class="card grow">
