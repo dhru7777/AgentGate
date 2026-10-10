@@ -138,13 +138,24 @@ function withTimeSpent(visits: Visit[]): Visit[] {
 }
 
 
-/** The owner's own test traffic (Austin, Cursor). Left out of every number the dashboard shows. */
-export const TEST_TRAFFIC_NOTE = "test traffic from Austin and Cursor excluded";
+/** The owner's own test traffic. Left out of every number the dashboard shows. */
+export const TEST_TRAFFIC_NOTE = "test traffic from Cursor and today's MapleLabsBot testing excluded";
 
 type LiveRow = LivePayload["recent"][number];
 
+// Everything MapleLabsBot sent during today's build-and-test session, before this was deployed.
+// Only a fixed cutoff, not "MapleLabsBot" as a whole: once real visitors (judges, etc.) start
+// using the live demo, that traffic is real and should show up in the dashboard like any other.
+const TEST_SESSION_END = Date.parse("2026-10-10T02:52:20.000Z");
+
 function isTestRow(row: LiveRow): boolean {
-  return (row.city ?? "").toLowerCase() === "austin" || row.agent === "Cursor";
+  // Cursor is the owner's own testing tool. The "verify" probes are the demo checking a policy
+  // change went live. Filtering by city (e.g. Austin) was tried earlier and removed, 481 of the
+  // blog's 500 most recent rows were tagged Austin and most of those were real traffic, not the
+  // owner's testing, excluding a whole city was far too broad and hid real data.
+  if (row.agent === "Cursor" || /maplelabsbot-verify/i.test(row.ua ?? "")) return true;
+  const isMapleLabsBot = row.agent === "MapleLabsBot" || /maplelabsbot/i.test(row.ua ?? "");
+  return isMapleLabsBot && Date.parse(row.ts) <= TEST_SESSION_END;
 }
 
 function pageKey(path: string): string {
@@ -192,7 +203,9 @@ function withoutTestTraffic(data: LivePayload): LivePayload {
     topPages: data.topPages
       .map((page) => ({ ...page, count: page.count - (byPage.get(pageKey(page.name)) ?? 0) }))
       .filter((page) => page.count > 0),
-    places: data.places.filter((place) => place.city.toLowerCase() !== "austin"),
+    places: data.places
+      .map((place) => ({ ...place, count: place.count - test.filter((row) => (row.city || row.country) === place.city).length }))
+      .filter((place) => place.count > 0),
     series: data.series.map((row) => {
       const gone = byDay.get(row.t);
       return gone

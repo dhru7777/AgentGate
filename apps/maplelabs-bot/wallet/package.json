@@ -1,0 +1,6 @@
+{
+  "name": "@agentgate/maplelabs-bot-wallet",
+  "private": true,
+  "type": "module",
+  "dependencies": { "viem": "^2.38.6" }
+}

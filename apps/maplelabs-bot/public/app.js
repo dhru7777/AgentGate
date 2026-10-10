@@ -1,41 +1,215 @@
 const $ = (s) => document.querySelector(s);
-const state = { mode: "user", modes: {}, running: false, seen: new Set(), canControl: false };
+const state = { mode: "search", brain: "maplelabs", modes: {}, brains: {}, prices: {}, running: false, seen: new Set(), canControl: false, approveId: 0 };
 const PURPOSE = { training: "Training", search: "Search", user: "User search", unidentified: "Unidentified" };
-const SUGGEST = ["What is x402?", "Explain ERC-8004", "Why is double spending a problem?", "What do you think of liquid staking?"];
+
+const BRAND = {
+  openai: { label: "ChatGPT", sub: "OpenAI" },
+  anthropic: { label: "Claude", sub: "Anthropic" },
+  maplelabs: { label: "MapleLabsBot", sub: "our own script, no model" },
+};
+
+function pickLabel(id) {
+  if (id === "openai") return "ChatGPT";
+  if (id === "anthropic") return "Claude";
+  return "MapleLabsBot";
+}
+function pickWhy(id, cfg) {
+  if (id === "maplelabs") return "fixed script, no model call, always free to run";
+  const b = cfg.brains[id];
+  return b && b.available ? `live model, ${b.model}` : "needs an API key on the server";
+}
 
 async function init() {
   const cfg = await (await fetch("/api/config")).json();
-  state.modes = cfg.modes; state.canControl = cfg.canControl;
+  state.modes = cfg.modes;
+  state.brains = cfg.brains;
+  state.prices = cfg.prices;
+  state.canControl = cfg.canControl;
+  state.requiresPolicyKey = cfg.requiresPolicyKey;
+
   $("#site").textContent = cfg.site.replace("https://", "");
-  $("#modes").innerHTML = Object.entries(cfg.modes).map(([id, m]) => `<button class="mode" data-id="${id}"><b>${m.label}</b><span>${m.why}</span></button>`).join("");
+  $("#iframePath").textContent = cfg.site.replace("https://", "");
+  // Fix: show the live blog right away instead of leaving the pane blank until the first message.
+  $("#siteFrame").src = cfg.site;
+
+  $("#modes").innerHTML = Object.entries(cfg.modes)
+    .map(([id, m]) => `<button class="mode" data-id="${id}"><b>${m.label}</b><span>${m.why}</span></button>`)
+    .join("");
   $("#modes").addEventListener("click", (e) => { const b = e.target.closest(".mode"); if (b) setMode(b.dataset.id); });
-  $("#suggest").innerHTML = SUGGEST.map((s) => `<button type="button">${s}</button>`).join("");
+
+  $("#brains").innerHTML = ["maplelabs", "openai", "anthropic"]
+    .map((id) => {
+      const b = cfg.brains[id];
+      const disabled = !b.available;
+      return `<button class="pick" data-brain="${id}" type="button" ${disabled ? "disabled" : ""}><b>${pickLabel(id)}</b><span>${pickWhy(id, cfg)}</span></button>`;
+    })
+    .join("");
+  $("#brains").addEventListener("click", (e) => { const b = e.target.closest(".pick"); if (b && !b.disabled) setBrain(b.dataset.brain); });
+
+  $("#suggest").innerHTML = ["What is x402?", "Explain ERC-8004", "Why is double spending a problem?", "What do you think of liquid staking?"]
+    .map((s) => `<button type="button">${s}</button>`)
+    .join("");
   $("#suggest").addEventListener("click", (e) => { if (e.target.tagName === "BUTTON") { $("#q").value = e.target.textContent; $("#q").focus(); } });
+
   $("#form").addEventListener("submit", (e) => { e.preventDefault(); send(); });
   $("#policy").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && state.canControl) setPolicy(b.dataset.mode); });
-  setMode("user"); loadPolicy(); pollLog(); setInterval(pollLog, 2500);
+  $("#dotsBtn").addEventListener("click", () => { $("#dotsMenu").hidden = !$("#dotsMenu").hidden; });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".brand")) $("#dotsMenu").hidden = true; });
+  document.querySelectorAll(".max-btn").forEach((b) => b.addEventListener("click", () => toggleMax(b.dataset.pane)));
+
+  setMode("search");
+  setBrain("maplelabs");
+  loadPolicy();
+  pollLog();
+  setInterval(pollLog, 2500);
+  initWallets(cfg.wallets);
+}
+
+const short = (addr) => (addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : "not configured");
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); } catch { /* clipboard may be unavailable, ignore */ }
+}
+
+// Each wallet is a small $ button that opens a popover on click, closes on an outside click
+// or a second click on the same button, same interaction as midnightx402's ui-demo.
+function wirePopover(wrapId, btnId) {
+  const wrap = $(`#${wrapId}`), btn = $(`#${btnId}`);
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !wrap.classList.contains("open");
+    document.querySelectorAll(".pop-wrap.open").forEach((w) => w.classList.remove("open"));
+    if (willOpen) wrap.classList.add("open");
+  });
+}
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".pop-wrap")) document.querySelectorAll(".pop-wrap.open").forEach((w) => w.classList.remove("open"));
+});
+
+function initWallets(wallets) {
+  if (!wallets) return;
+  state.wallets = wallets;
+  $("#buyerWrap").hidden = false;
+  $("#sellerWrap").hidden = false;
+  wirePopover("buyerWrap", "buyerBtn");
+  wirePopover("sellerWrap", "sellerBtn");
+
+  $("#buyerAddr").textContent = short(wallets.buyer);
+  $("#sellerAddr").textContent = short(wallets.seller);
+  if (wallets.buyer) {
+    $("#buyerAddr").onclick = () => copyText(wallets.buyer);
+    $("#buyerExplorer").href = `${wallets.explorer}/address/${wallets.buyer}`;
+    $("#buyerExplorer").hidden = false;
+  }
+  $("#sellerAddr").onclick = () => copyText(wallets.seller);
+  $("#sellerExplorer").href = `${wallets.explorer}/address/${wallets.seller}`;
+  $("#sellerExplorer").hidden = false;
+
+  pollWallets();
+  setInterval(pollWallets, 15000);
+}
+
+async function pollWallets() {
+  try {
+    const { buyer, seller } = await (await fetch("/api/wallets")).json();
+    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; }
+    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; }
+  } catch { /* balances are a nice-to-have, ignore failures */ }
+}
+
+// A 402 shows this card before anything about money happens. Approve only reveals the exact
+// command to run in your own terminal, it never sends anything itself, no key ever touches
+// this page. Decline just closes it out.
+function approvalCardHtml(ev) {
+  const id = `ap${++state.approveId}`;
+  const amount = (ev.price || "").match(/[\d.]+/)?.[0] || "";
+  const to = ev.payTo || (state.wallets && state.wallets.seller) || "";
+  return `<div class="approve-card" id="${id}">
+    <b>Pay this, or not?</b> A human has to say yes before anything moves.
+    <div class="muted">${amount ? `${esc(amount)} USDC` : "amount unknown"} to ${short(to)}</div>
+    <div class="approve-row">
+      <button class="approve-yes" onclick="approvePay('${id}','${esc(amount)}','${esc(to)}')">Approve</button>
+      <button class="approve-no" onclick="declinePay('${id}')">Decline</button>
+    </div>
+  </div>`;
+}
+
+window.approvePay = (id, amount, to) => {
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.classList.add("resolved");
+  card.querySelector("b").textContent = "Approved, waiting on you";
+  const btns = [$("#buyerBtn"), $("#sellerBtn")];
+  btns.forEach((b) => b.classList.add("flash"));
+  setTimeout(() => btns.forEach((b) => b.classList.remove("flash")), 2000);
+  if (!amount || !to) {
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note">Could not read an amount or recipient from this 402, nothing to run.</div>`);
+    return;
+  }
+  const cmd = `node wallet/send.mjs --to ${to} --amount ${amount}`;
+  card.insertAdjacentHTML("beforeend", `<div class="approve-cmd">${esc(cmd)}<button type="button" onclick="copyText('${esc(cmd)}')">Copy</button></div><div class="approve-note">Runs in your own terminal with your own BUYER_WALLET_PRIVATE_KEY. Nothing here can send it for you.</div>`);
+};
+
+window.declinePay = (id) => {
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.classList.add("resolved");
+  card.querySelector("b").textContent = "Declined";
+};
+
+function toggleMax(pane) {
+  const current = document.body.dataset.max;
+  if (current === pane) delete document.body.dataset.max;
+  else document.body.dataset.max = pane;
+  document.querySelectorAll(".max-btn").forEach((b) => {
+    b.textContent = document.body.dataset.max === b.dataset.pane ? "⤡" : "⤢";
+    b.setAttribute("aria-label", document.body.dataset.max === b.dataset.pane ? "Restore" : "Maximize this pane");
+  });
 }
 
 function setMode(id) {
   state.mode = id;
   document.querySelectorAll(".mode").forEach((b) => b.classList.toggle("on", b.dataset.id === id));
 }
-
-async function loadPolicy() {
-  const { mode } = await (await fetch("/api/policy")).json();
-  paintPolicy(mode);
+function setBrain(id) {
+  state.brain = id;
+  document.querySelectorAll(".pick").forEach((b) => b.classList.toggle("on", b.dataset.brain === id));
+  $("#brainTag").textContent = state.brain === "maplelabs" ? "fixed script" : pickWhy(id, { brains: state.brains });
+  // The pane itself darkens toward whichever brand is currently picked. Past messages keep
+  // the theme they were sent under regardless, this only changes the chrome going forward.
+  document.querySelector(".chat").dataset.brain = id;
 }
+
+async function loadPolicy() { paintPolicy((await (await fetch("/api/policy")).json()).mode); }
 function paintPolicy(mode) {
   document.querySelectorAll("#policy button").forEach((b) => { b.classList.toggle("on", b.dataset.mode === mode); b.disabled = !state.canControl; });
-  $("#policyHint").textContent = !state.canControl ? "Start the server with ADMIN_KEY to switch the policy here."
-    : mode === "free" ? "robots.txt allows it. Posts are served." : mode === "charge" ? "robots.txt allows it. Posts answer HTTP 402 until paid." : "robots.txt disallows it. A bot that obeys never asks for a post.";
+  $("#policyHint").textContent = !state.canControl
+    ? "Start the server with ADMIN_KEY to switch the policy here."
+    : mode === "free" ? "robots.txt allows it. Posts are served."
+    : mode === "charge" ? "robots.txt allows it. Posts answer HTTP 402 until paid."
+    : "robots.txt disallows it. A bot that obeys never asks for a post.";
 }
+function policyKeyHeader() {
+  if (!state.requiresPolicyKey) return {};
+  let key = sessionStorage.getItem("maplelabs.policyKey");
+  if (!key) {
+    key = prompt("Changing the live Free/Charge/Block policy needs the demo key. Ask the site owner for it.") || "";
+    sessionStorage.setItem("maplelabs.policyKey", key);
+  }
+  return { "x-demo-key": key };
+}
+
 async function setPolicy(mode) {
   paintPolicy(mode);
   state.running = true; $("#send").disabled = true;
-  $("#policyHint").textContent = "Applying on the live site… this can take up to a minute.";
-  const r = await (await fetch("/api/policy", { method: "POST", body: JSON.stringify({ mode }) })).json();
+  $("#policyHint").textContent = "Applying on the live site, this can take up to a minute.";
+  const r = await (await fetch("/api/policy", { method: "POST", headers: policyKeyHeader(), body: JSON.stringify({ mode }) })).json();
   state.running = false; $("#send").disabled = false;
+  if (r.error) {
+    sessionStorage.removeItem("maplelabs.policyKey");
+    $("#policyHint").textContent = r.error;
+    return;
+  }
   paintPolicy(r.mode);
   if (!r.applied) $("#policyHint").textContent = "Saved, but the site has not picked it up yet. Try again in a few seconds.";
 }
@@ -44,15 +218,39 @@ function add(html, cls) { const d = document.createElement("div"); d.className =
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const cls = (s) => (s === 200 ? "s200" : s === 402 ? "s402" : "sx");
 
+function beam(label) {
+  const b = $("#beam"); $("#beamLabel").textContent = label;
+  b.classList.remove("active"); void b.offsetWidth; b.classList.add("active");
+}
+function navigateSite(path) {
+  const site = $("#site").textContent;
+  $("#iframePath").textContent = site + path;
+  $("#siteFrame").src = "https://" + site + path;
+}
+
+function avatarFor(brand) {
+  if (brand === "openai") return `<span class="avatar"></span>`;
+  if (brand === "anthropic") return `<span class="avatar"></span>`;
+  return `<span class="avatar">M</span>`;
+}
+
 async function send() {
   const q = $("#q").value.trim(); if (!q || state.running) return;
   $("#q").value = ""; state.running = true; $("#send").disabled = true;
   add(esc(q), "msg me");
-  const bot = add(`<span class="tag">${state.modes[state.mode].label}</span><div class="steps"></div>`, "msg bot");
+
+  const brainAtSend = state.brain;
+  const modeAtSend = state.mode;
+  const bot = add("", `msg bot brand-${brainAtSend}`);
+  bot.innerHTML = `
+    <div class="bot-head">${avatarFor(brainAtSend)}<span class="who">${BRAND[brainAtSend].label}</span><span class="who-sub">&middot; ${esc(BRAND[brainAtSend].sub)} &middot; ${esc(state.modes[modeAtSend].label)}</span></div>
+    <div class="steps"></div>
+  `;
   const steps = bot.querySelector(".steps");
   document.querySelectorAll(".node").forEach((n) => (n.className = "node skip"));
   let req = 0, ok = 0, blocked = 0;
-  const res = await fetch("/api/run", { method: "POST", body: JSON.stringify({ mode: state.mode, question: q, respectRobots: $("#respect").checked }) });
+
+  const res = await fetch("/api/run", { method: "POST", body: JSON.stringify({ mode: modeAtSend, brain: brainAtSend, question: q, respectRobots: $("#respect").checked }) });
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
   for (;;) {
     const { value, done } = await reader.read(); if (done) break;
@@ -63,13 +261,26 @@ async function send() {
       const ev = JSON.parse(p.slice(6));
       if (ev.type === "step") {
         req++; if (ev.status === 200) ok++; if (ev.status === 402) blocked++;
-        steps.insertAdjacentHTML("beforeend", `<div class="step"><span class="badge ${cls(ev.status)}">${ev.status}</span><span>${esc(ev.label)}</span><code>${esc(ev.path.length > 46 ? ev.path.slice(0, 46) + "…" : ev.path)} · ${ev.ms}ms</code></div>`);
+        steps.insertAdjacentHTML("beforeend", `<div class="step"><span class="badge ${cls(ev.status)}">${ev.status}</span><span>${esc(ev.label)}</span><code>${esc(ev.path.length > 42 ? ev.path.slice(0, 42) + "..." : ev.path)} &middot; ${ev.ms}ms</code></div>`);
         const node = document.querySelector(`.node[data-k="${ev.kind}"]`); if (node) node.className = "node " + cls(ev.status);
         $("#kReq").textContent = req; $("#kOk").textContent = ok; $("#kBlock").textContent = blocked;
+        beam(ev.path); navigateSite(ev.path);
       } else if (ev.type === "decision") {
         steps.insertAdjacentHTML("beforeend", `<div class="note ${ev.violation || ev.allowed === false ? "warn" : ""}">${esc(ev.text)}</div>`);
+      } else if (ev.type === "aside") {
+        bot.insertAdjacentHTML("beforeend", `<div class="aside">${esc(ev.text)}</div>`);
+      } else if (ev.type === "thinking") {
+        bot.insertAdjacentHTML("beforeend", `<div class="thinking">${esc(ev.text.length > 240 ? ev.text.slice(0, 240) + "..." : ev.text)}</div>`);
       } else if (ev.type === "payment") {
-        steps.insertAdjacentHTML("beforeend", `<div class="pay"><b>HTTP 402 Payment Required</b><br>${esc(ev.price || "")} on ${esc(ev.network || "")}. The bot has no wallet, so it does not pay.</div>`);
+        steps.insertAdjacentHTML("beforeend", `<div class="pay"><b>HTTP 402 Payment Required</b>${ev.price ? `<br>${esc(ev.price)} on ${esc(ev.network || "")}` : ""}</div>`);
+        bot.insertAdjacentHTML("beforeend", approvalCardHtml(ev));
+      } else if (ev.type === "paid") {
+        bot.insertAdjacentHTML("beforeend", `<div class="paid"><b>Paid, simulated demo wallet</b><br>${esc(ev.tier)} &middot; $${ev.charged} &middot; valid ${ev.hours}h</div>`);
+      } else if (ev.type === "bundle") {
+        const b = ev.bundle;
+        const blob = new Blob([JSON.stringify(b, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        bot.insertAdjacentHTML("beforeend", `<div class="bundle">${b.postCount} posts &middot; expires ${new Date(b.expiresAt).toLocaleString()}<br><span class="muted">${esc(b.source)}</span><br><a class="dl" href="${url}" download="maplelabs-bundle-${b.bundle}.json">Download bundle.json</a></div>`);
       } else if (ev.type === "answer") {
         bot.insertAdjacentHTML("beforeend", `<div class="answer">${esc(ev.text)}${(ev.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.title)}</a>`).join("")}</div>`);
       } else if (ev.type === "error") {
@@ -90,8 +301,9 @@ async function pollLog() {
     body.innerHTML = rows.map((r) => {
       const id = r.ts + r.path; const fresh = !first && !state.seen.has(id); state.seen.add(id);
       const robots = r.robots ? `<span class="pill ${r.robots === "allowed" ? "s200" : "s402"}">${r.robots}</span>` : "";
-      return `<tr class="${fresh ? "fresh" : ""}"><td>${new Date(r.ts).toLocaleTimeString()}</td><td>${PURPOSE[r.purpose] || r.purpose || ""}</td><td title="${esc(r.path)}">${esc(r.path)}</td><td><span class="pill ${cls(r.status)}">${r.status}</span></td><td>${robots}</td></tr>`;
+      return `<tr class="${fresh ? "fresh" : ""}"><td>${new Date(r.ts).toLocaleTimeString()}</td><td>${esc(r.model || "")}</td><td>${PURPOSE[r.purpose] || r.purpose || ""}</td><td title="${esc(r.path)}">${esc(r.path)}</td><td><span class="pill ${cls(r.status)}">${r.status}</span></td><td>${robots}</td></tr>`;
     }).join("");
   } catch { $("#logState").textContent = "offline"; }
 }
+
 init();

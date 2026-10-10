@@ -1,0 +1,276 @@
+{
+  "collected": "from the blog's own Jekyll source files on disk, not by crawling the live site",
+  "note": "Short excerpts only (3 paragraphs per post, max), for the Train-mode demo bundle.",
+  "posts": [
+    {
+      "url": "/2023/01/07/Understanding-Double-Spending-and-Preventing-Attacks-in-Cryptocurrency.html",
+      "title": "Understnding Double Spending and preventing attacks in Cryptocurrency",
+      "excerpts": [
+        "When currency is used twice for the same purpose at the same time, it is referred to as double-spending . In the context of cryptocurrencies like Bitcoin and Ethereum, double-spending occurs when transaction information within a blockchain is manipulated under certain conditions. This can lead to several types of attacks, as discussed below.",
+        "1. 51% Attack - This attack occurs when an attacker gains control of more than 51% of the mining power in a blockchain. - With this majority, the attacker can: - Reverse transactions. - Halt transaction confirmations. - Manipulate blockchain history. - This is one of the most challenging attacks to execute due to the computational power and resources required.",
+        "2. Finney Attack - In this attack, the attacker creates two transactions: 1. One transaction credits the victim. 2. The other credits the attacker. - The attacker pre-mines the second transaction and holds it while attempting to use the first transaction for a purchase. Once the purchase is completed, the attacker releases the pre-mined block, invalidating the first transaction. - Protection : Merchants should require at least one confirmation before releasing goods and more confirmations for high-value transactions."
+      ]
+    },
+    {
+      "url": "/2023/02/07/On-Chain-Off-Chain-and-Sidechain-Explained-Layer-1-vs-Layer-2-Solutions.html",
+      "title": "On-Chain  VS  Off-Chain  VS  Side-Chain",
+      "excerpts": [
+        "Blockchain transactions can occur in different ways depending on factors such as cost, scalability, and processing time. In this blog, we'll explore the differences between on-chain , off-chain , and sidechain transactions and discuss their advantages, disadvantages, and use cases.",
+        "Topics Covered 1. What is an on-chain data event? 2. What is an off-chain data event? 3. What is a sidechain data event? 4. What are Layer 2 and Layer 1 solutions? - Rollups and their types: - Zero Knowledge Rollups - Optimistic Rollups 5. Which mode of transaction is beneficial for your application?",
+        "Analogy: Blockchain as Cloud Storage - Public Cloud : Data accessible to everyone\u2014similar to on-chain transactions . - Private Cloud : Data accessible only to selected users\u2014similar to off-chain transactions . - Both public and private clouds operate within the same cloud storage framework, analogous to how blockchain handles transactions differently based on requirements like cost and scalability."
+      ]
+    },
+    {
+      "url": "/2023/03/07/Crypto-Tokens-and-Coins-From-NFTs-to-Stablecoins.html",
+      "title": "Tokens VS Coins : Decoded",
+      "excerpts": [
+        "In the world of Web3, you might have noticed a variety of coins and tokens. From NFTs to popular cryptocurrencies like Bitcoin and Ethereum, there\u2019s a lot going on. Let\u2019s break down the difference between a coin and a token and dive into their various types and use cases.",
+        "- Crypto Coin : Operates on its own blockchain (e.g., Bitcoin, Ethereum) and functions solely as digital money. - Crypto Token : Utilizes an existing blockchain network and represents an asset or utility with its own value. Tokens are often used to raise capital or provide specific functionalities.",
+        "1. Non-Fungible Token (NFT) - Definition : Cryptographic assets created using blockchain technology that are unique and cannot be exchanged or traded equivalently. - Use Case : Represent ownership of digital assets like art, music, in-game items, tickets, and collectibles. - Example : - CryptoPunks : One of the first NFT projects created on the Ethereum blockchain, widely regarded as a blue-chip NFT investment."
+      ]
+    },
+    {
+      "url": "/2024/03/10/Technical-Documentation-at-Bitquery-Arbitrum-NFT-Api-Guide-to-Recover-Stolen-Bitcoin-Top-10-Web-Socket-API-Transaction-Simulation-and-Automated-Volume-Surge-Detection-Using-Trade-Execution-Bot.html",
+      "title": "Technical Docmentation at Bitquery: My 6 articles helped 1000+ Developers",
+      "excerpts": [
+        "Redirection to Bitquery Website --- Article 1: Arbitrum NFT API Discover how to access and analyze NFT data from the Arbitrum blockchain using Bitquery API. Enhance your market analysis, track ownership, and foster innovation in the NFT ecosystem.",
+        "Article 2: Transaction Simulation Learn about transaction simulation in blockchain networks and how the Bitquery Mempool API provides developers with tools to test, analyze, and optimize blockchain transactions for efficient DApp development.",
+        "Article 3: Inside Solana Instruction Types Exploration Explore how Solana and Bitquery APIs assist in analyzing and understanding blockchain transactions, enabling efficient decentralized application (DApp) development."
+      ]
+    },
+    {
+      "url": "/2024/03/15/Top-Crypto-WebSocket-APIs-for-Real-Time-Blockchain-Data.html",
+      "title": "Top Crypto WebSocket APIs for Real-Time Blockchain Data",
+      "excerpts": [
+        "I first wrote this piece during my time at Bitquery in early 2024, with guidance from my mentor Divyashree . We published it on Coinmonks under the title Top Crypto WebSocket APIs . Later, the Coinmonks Medium account was taken down, and the original link started returning a 410 error , effectively erasing the article from Medium. What I discovered only much later was that the Chinese blockchain community had translated and republished it on LearnBlockChain / \u767b\u94fe\u793e\u533a , where it quietly collected around 9,755 reads , all while crediting the original Coinmonks URL. This version is a refreshed English rewrite, based on my original structure and those surviving translations, so it can finally live on my own site as its canonical home.",
+        "In crypto, information only matters if it arrives on time. Prices move in seconds, liquidity shifts across venues, and on-chain events like liquidations or large transfers can trigger entire cascades of behavior. Developers, traders, and analysts need real-time data feeds to power trading systems, dashboards, tax and portfolio tools, and risk engines.",
+        "WebSockets are one of the most effective ways to stream that data. They provide a low-latency, bidirectional channel between clients and servers, which is why most serious crypto data providers now expose WebSocket APIs."
+      ]
+    },
+    {
+      "url": "/2024/11/25/Fixing-big-tech-blackbox-Instagram.html",
+      "title": "Instagram is a Blackbox",
+      "excerpts": [
+        "Every time you upload a photo or video to platforms like Instagram, you lose control over it. Your content is compressed, stored, and managed by the platform. Did you know they can alter or delete your content without your knowledge? (Yes, you might have signed those terms and conditions, but you deserve to have control over your data!)",
+        "Platforms Have Complete Control Over Your Data - Where it\u2019s stored. - How it\u2019s displayed. - Whether it stays online.",
+        "Why Is This a Problem? - Lack of Transparency : You don\u2019t know what happens to your content after uploading. - Power Imbalance : Big tech platforms like Instagram hold all the cards. - Risk of Censorship or Misuse : Your data could be sold to analytics companies without your consent."
+      ]
+    },
+    {
+      "url": "/2024/11/27/From-Bearish-to-Bullish-How-punk6529-Changed-My-Mind-on-NFTs.html",
+      "title": "From Bearish to Bullish: How @punk6529 Changed My Mind on NFTs",
+      "excerpts": [
+        "I recently came across a thread by @punk6529 that challenged my bearish views on NFTs. It explained why NFTs matter, how they solve real problems, and why their underlying myth \u2014 decentralization \u2014 is so powerful.",
+        "Humans thrive on myths \u2014 shared stories that allow us to cooperate and build systems.",
+        "- Money is a myth: It works because we agree it has value. - Nations are myths: Flags and borders are stories we believe in. - Brands are myths: Think Apple, Nike, or even Bitcoin."
+      ]
+    },
+    {
+      "url": "/2024/11/28/How-Story-Protocol-Couldve-Saved-Taylor-Swifts-300M-Mistake.html",
+      "title": "How Story Protocol Could\u2019ve Saved Taylor Swift\u2019s $300M Mistake",
+      "excerpts": [
+        "Taylor Swift lost control of her early music catalog when her record label sold her masters (original recordings) without her consent. This isn\u2019t just her story \u2014 it\u2019s a problem many creators face. Let\u2019s dive in. \ud83e\uddf5",
+        "Taylor\u2019s masters were owned by her label, which meant: - She couldn\u2019t control who could license her music or how it was used. - Worse, her music rights were sold to someone she didn\u2019t trust, without her approval.",
+        "Creators face significant issues with Intellectual Property (IP) : - No Transparency : Where are royalties coming from? How much is earned? - Complex Licensing : Negotiating terms is slow and expensive. - Disempowered Creators : Small creators lack resources to protect their rights."
+      ]
+    },
+    {
+      "url": "/2024/11/29/Why-Are-We-Skeptical-About-Current-Blockchain-Applications.html",
+      "title": "Why Are We Skeptical About Current Blockchain Applications?",
+      "excerpts": [
+        "Blockchain is a powerful technology with immense potential, but I often wonder: \u201cIs it solving the problems people face today?\u201d Coming from a developing country like India, where basic necessities are a priority for many, I question whether blockchain applications align with the issues that matter most in a direct way.",
+        "For many in developing countries, the key challenges are: - Access to food and clean water - Affordable healthcare - Basic education - Jobs and financial stability",
+        "These are urgent and immediate needs. Blockchain doesn\u2019t seem to directly address them."
+      ]
+    },
+    {
+      "url": "/2024/12/05/The-Power-Struggle-in-Decentralization.html",
+      "title": "The Power Struggle in Decentralization",
+      "excerpts": [
+        "Power has always been centralized \u2014 think kings, governments, and corporations. Those in power rarely want to relinquish control. Even blockchain ecosystems, built to decentralize power, face challenges of centralization.",
+        "Bitcoin\u2019s goal was decentralization, where anyone with a computer could mine and contribute to the network.",
+        "- What Happened? Over time, individual miners found it hard to compete as mining became resource-intensive and expensive. To improve their chances of earning rewards, miners began joining forces through mining pools like Foundry USA, AntPool, and F2Pool."
+      ]
+    },
+    {
+      "url": "/2024/12/23/The-Pendulum-of-the-Internet-From-Open-Systems-to-Closed-Platforms-and-Back-Again.html",
+      "title": "The Pendulum of the Internet: From Open Systems to Closed Platforms and Back Again",
+      "excerpts": [
+        "The history of the internet can be described as a pendulum, swinging between two extremes: open systems where anyone can innovate, and closed platforms controlled by big companies like Google and Amazon.",
+        "In the 1990s, open systems like websites using HTTP and email using SMTP prevailed. These technologies were not owned by any single company, enabling widespread creativity and innovation. Developers and entrepreneurs thrived in this environment, building freely without gatekeepers.",
+        "Fast forward to today, and the internet is largely dominated by big companies. Social media, messaging, and payment systems are controlled by a few platforms. This limits the opportunities for creators and developers, as these platforms dictate the rules."
+      ]
+    },
+    {
+      "url": "/2024/12/25/What-Are-Zero-Knowledge-Proofs-and-Why-Do-They-Matter.html",
+      "title": "What Are Zero-Knowledge Proofs and Why Do They Matter?",
+      "excerpts": [
+        "- Can you prove your age without revealing your birthdate? - Would you be able to prove that you have money in the bank without showing your balance? - Can you verify your identity without handing over your ID? - What if you could qualify for a loan without disclosing your full financial history? - Could your bank process your loan without ever seeing your spending habits?",
+        "You\u2019re applying for a $50,000 loan at your bank. They ask for proof of income and creditworthiness. You hand over your full financial records. Now the bank knows everything \u2014 your spending habits, subscriptions, and much more than they actually need.",
+        "ZKPs are cryptographic protocols that let you prove a statement is true without revealing the underlying data."
+      ]
+    },
+    {
+      "url": "/2024/12/27/AI-Bot-That-Became-a-Crypto-Millionaire.html",
+      "title": "AI Bot That Became a Crypto Millionaire",
+      "excerpts": [
+        "Truth Terminal isn\u2019t just a chatbot \u2014 it\u2019s Andy Ayrey\u2019s \u201cext cortex,\u201d an extension of his thinking. Created using the Llama 70b model and fine-tuned with Claude Opus , it was designed to explore big ideas, blending AI and human creativity.",
+        "Truth Terminal started on Twitter in June 2024, rapidly gaining attention for its unique mix of speculative ideas and humor. - Followers : Over 230,000 - Tweets : 5,000+",
+        "In July 2024, Marc Andreessen noticed Truth Terminal\u2019s unique content and donated $50,000 in Bitcoin . The funds were initially planned for: - Purchasing a dedicated computer to reduce AWS reliance. - Improving its AI model (allocated $10,000-$15,000). - Setting up a Discord server for community engagement. - Exploring the creation of a cryptocurrency token or memecoin inspired by its viral content."
+      ]
+    },
+    {
+      "url": "/2025/01/04/Solving-MEV-with-Zero-Knowledge-Proofs-and-Trusted-Execution-Environments.html",
+      "title": "A White Space : Solving MEV with ZK Proofs and TEEs",
+      "excerpts": [
+        "Maximal Extractable Value (MEV) refers to the additional profit that blockchain validators or miners can extract by manipulating the order of transactions within a block. Since transactions are visible in the mempool \u2014 essentially a public waiting area before execution \u2014 validators can exploit this transparency for personal gain.",
+        "Common Strategies: - Front-Running : A validator detects a high-value transaction, places their own buy order first, and profits when the price rises. Example: Alice\u2019s order to buy tokens at $10 is delayed, and she ends up paying $12 per token.",
+        "- Back-Running : After Alice\u2019s transaction executes, the validator places a sell order to capitalize on the price movement."
+      ]
+    },
+    {
+      "url": "/2025/01/04/Why-one-should-not-use-Centralized-Exchanges-for-Crypto-Trading.html",
+      "title": "Why One Should Not Use Centralized Exchanges for Crypto Trading",
+      "excerpts": [
+        "Centralized exchanges (CEXs) like Coinbase and Binance may offer convenience, but they come with a critical flaw: you don\u2019t own the private keys to your cryptocurrency .",
+        "The phrase \u201cnot your keys, not your coins\u201d holds true because when you use a CEX, your funds are held in a wallet controlled by the exchange. This makes your assets vulnerable to: - Hacks - Operational failures - Regulatory freezes",
+        "Additionally, relying on a single entity undermines the decentralized principles of cryptocurrencies, where the core idea is to have control over your own funds."
+      ]
+    },
+    {
+      "url": "/2025/01/14/Trusted-Execution-Environments-(TEEs)-and-Why-They-Matter-in-Crypto-Networks.html",
+      "title": "Trusted Execution Environments (TEEs) and Why They Matter in Crypto Networks",
+      "excerpts": [
+        "- Can you process sensitive data on your device without worrying about hackers or malware? - What if your bank could approve your loan without ever seeing your financial data? - Could your crypto wallet execute secure transactions without exposing private keys? - Would it be possible for dApps to guarantee privacy while still being publicly verifiable? - Can blockchain validators process transactions without knowing transaction amounts?",
+        "In traditional blockchain systems, validators have access to pending transactions in the mempool. This visibility allows for MEV (Maximum Extractable Value) exploitation , where validators can:",
+        "- Reorder transactions for profit. - Front-run transactions (place their orders before yours). - Back-run transactions (execute orders based on your trade)."
+      ]
+    },
+    {
+      "url": "/2025/01/20/How-Much-Do-You-Really-Pay-While-Transferring-Fees-from-a-Student-Loan-to-an-Institute.html",
+      "title": "How Much Are You Really Losing to Hidden Fees When Paying Tuition Abroad by Traditional Banking?",
+      "excerpts": [
+        "When I transferred funds from a loan of \u20b920,00,000 to New York University (NYU) for my tuition fees, I realized how much extra I ended up paying in hidden charges. It was an eye-opening experience to see how many intermediaries were involved in the process and how each one added their own fees. This got me thinking\u2014what if there was a better way? Let me walk you through my experience, the charges I paid, and an idea that could save students like me a significant amount of money.",
+        "Here\u2019s how the money flowed from my loan to NYU and the charges involved at each step:",
+        "- This flowchart shows the traditional process of transferring funds. - Steps include: 1. Loan Disbursal from Credila Bank. 2. Bank Initiates Remittance , adding Tax Collected at Source (TCS), commission, and Goods and Services Tax (GST). 3. Forex (Foreign Exchange) Conversion (INR to USD), with forex and GST charges. 4. SWIFT (Society for Worldwide Interbank Financial Telecommunication) Network processes funds, incurring transfer fees. 5. Intermediary Bank routes payments with additional charges. 6. Flywire Platform facilitates the payment to NYU. 7. Funds are credited to NYU's Bank Account ."
+      ]
+    },
+    {
+      "url": "/2025/01/31/Talk-on-Liquid-staking-protocol-at-NYU-Stern-Blockchain-Lab.html",
+      "title": "Talk on Liquid Staking Protocol at NYU STERN Blockchain Lab",
+      "excerpts": [
+        "Thanks to Gustavo and Professor Hannah for the opportunity to speak at Blockchain Lab NYU .",
+        "Introduction With Ethereum's transition from Proof-of-Work (PoW) to Proof-of-Stake (PoS) in 2022, staking became the primary method of securing the network. However, traditional staking presented several challenges, such as liquidity lockups, high entry barriers, and exit restrictions .",
+        "Liquid Staking emerged as a solution, allowing users to stake their assets while maintaining liquidity. This blog explores how liquid staking works, its benefits, and its relationship with restaking protocols ."
+      ]
+    },
+    {
+      "url": "/2025/02/17/Evolution-of-money.html",
+      "title": "Money Through Time: From Gold to Crypto",
+      "excerpts": [
+        "How Money Came Into Existence Imagine you and your friends live on an island. Everyone does different jobs \u2014 one makes shoes, another bakes bread, and someone else grows apples.",
+        "1\ufe0f\u20e3 At first, you trade directly \u2014 barter system. You give shoes in exchange for bread. 2\ufe0f\u20e3 Problem: The baker may not want shoes! He wants apples. So now you need to find an apple grower who also needs shoes. - This is called the \"coincidence of wants\" problem \u2014 it's hard to find someone who has what you need AND wants what you have. 3\ufe0f\u20e3 Solution: People start using something that everyone values, like butter or salt, as a common reference point for trade.",
+        "\u2714\ufe0f Divisible \u2014 If you\u2019re trading a cow, how do you split it? Gold coins or salt grains are easier to divide. \u2714\ufe0f Durable \u2014 Butter melts, but metals last long. \u2714\ufe0f Portable \u2014 Carrying a bag of salt is hard; small gold coins are easier. \u2714\ufe0f Recognizable \u2014 People must trust it has value."
+      ]
+    },
+    {
+      "url": "/2025/05/13/Why-Ola-Is-Building-Its-Own-LLMs-Krutrim.html",
+      "title": "Why Ola Is Building Its Own LLMs (Krutrim)",
+      "excerpts": [
+        "Ola started as a mobility services company, but today it is aiming for something much bigger. It is no longer just about cabs. Ola is evolving into a data and AI company .",
+        "Building its own large language models (LLMs), branded as Krutrim , is part of this broader vision. More importantly, it shows how Indian companies can shape the future of AI on their own terms , rather than importing it wholesale.",
+        "This way of thinking is inspired by the framework from the book Fusion Strategy . Believe me, this is far beyond a mobility platform. Let me explain."
+      ]
+    },
+    {
+      "url": "/2025/09/24/Concern-of-Re-centralization-Deepin.html",
+      "title": "Concern of Re-centralization: Deepin",
+      "excerpts": [
+        "Deepin stands for Distributed Electronic End-to-End Payment Infrastructure Network . It is a blockchain-based framework being developed by central banks and major commercial banks to enable secure, programmable, and even offline digital payments .",
+        "The idea is to build the next layer of financial plumbing that supports CBDCs, stablecoins, and tokenized deposits , in a way that works both online and offline.",
+        "Existing payment systems such as SWIFT, Visa, and Mastercard are: - Slow - Costly - Fragmented - Dependent on constant internet connectivity"
+      ]
+    },
+    {
+      "url": "/2025/10/16/Arbitrage-Opportunity-in-Prediction-Markets.html",
+      "title": "Arbitrage Opportunity in Prediction Markets",
+      "excerpts": [
+        "The same market exists on two platforms: - The first image represents Polymarket - The second image represents Kalshi",
+        "Rule: - If Y + N < 1 \u2192 theoretical positive spread - If Y + N \u2265 1 \u2192 no arbitrage (or negative)",
+        "Let x represent: - Trading fees - Slippage - Withdrawal costs - Platform inefficiencies"
+      ]
+    },
+    {
+      "url": "/2025/10/30/My-View-on-Zcash-Digital-Invisibility-Backed-by-Math.html",
+      "title": "My View on Zcash: Digital Invisibility Backed by Math",
+      "excerpts": [
+        "If Bitcoin is digital gold , then Zcash is digital invisibility \u2014 a currency built not for hype, but for privacy backed by math.",
+        "Most people talk about crypto in terms of price charts. Very few talk about what it actually changes . Zcash, quietly, has become one of the most important experiments in the history of money.",
+        "Zcash is a cryptocurrency designed for private payments using a technology called zero-knowledge proofs (zk-SNARKs) ."
+      ]
+    },
+    {
+      "url": "/2025/12/15/Google-Capturing-Attention-Is-All-You-Need.html",
+      "title": "Google: Capturing Attention Is All You Need",
+      "excerpts": [
+        "Advertising has long been the lifeblood of the internet economy. Platforms like Google and Amazon perfected a model where users\u2019 attention is the product, and advertisers pay for placement. Google earns over 80% of its revenue from ads, primarily through pay-per-click (PPC) search placements and YouTube display/video ads. Amazon, meanwhile, leverages its marketplace to sell \u201csponsored products,\u201d with advertisers paying for prime visibility on product searches.",
+        "In both cases, the distribution of money is straightforward: advertisers pay the platform, the platform takes the majority of the margin, and users see specific ads with little or no share of that value.",
+        "- Advertisers pay platforms for visibility (bidding in auctions for search results, product placement, or social media feeds). - Platforms (Google, Amazon, Meta, etc.) act as gatekeepers, controlling access to audiences and taking a large cut of ad spend. - Users provide attention and data, but capture none of the direct economic value."
+      ]
+    },
+    {
+      "url": "/2026/05/16/Capturing-Intent-and-Attention-in-Agentic-Payments.html",
+      "title": "Capturing Intent and Attention in Agentic Payments",
+      "excerpts": [
+        "As AI agents begin transacting for users, the bottleneck will shift from moving money to deciding who to trust , what to authorize , and how to recover when transactions fail.",
+        "I saw that Google captured human intent through search. Social media captured human attention through feeds and short-form content. The next layer may capture delegated user intent through trusted personal agents that can filter, decide, and transact on behalf of users.",
+        "2027 Infrastructure: Buyer-side and seller-side agents interact through a central Intent + Trust Layer before payment execution."
+      ]
+    },
+    {
+      "url": "/2026/05/26/Understanding-Agent-Client-Protocol.html",
+      "title": "Understanding Agent Client Protocol",
+      "excerpts": [
+        "Imagine you are coordinating a project with a remote team of specialists. You do not re-introduce yourself on every call. You pick up where you left off: what was decided, what is pending, what you are still waiting on.",
+        "Your specialists come from different companies. One uses Slack, one uses email, one has their own system. You need a shared language before any real work can happen. Before you assign anything, you ask what they can actually do. Some tasks take hours or days, so you do not block on every reply. When priorities shift, you send stop on an existing thread, not a brand-new conversation. Handoffs must stay visible, and access must match trust.",
+        "| Problem | Question | | ---------------- | ------------------------------------------------------ | | State | Do agents remember what was said before? | | Interoperability | Can my agent talk to yours in a shared format? | | Discovery | Is my agent talking to the right agent? | | Async work | What happens when a task runs for a long time? | | Control | Who can say stop, and will the other side listen? | | Trust | Should every agent trust every other agent by default? |"
+      ]
+    },
+    {
+      "url": "/2026/06/07/HTTP-402-to-x402-protocol.html",
+      "title": "HTTP 402 to x402 protocol",
+      "excerpts": [
+        "HTTP 402 is a standard HTTP response status code that indicates a payment is required before accessing a resource.",
+        "Interestingly, the idea has existed since the early days of the internet. Despite being part of the HTTP specification, HTTP 402 was rarely used because the Internet never developed a native way to move money.",
+        "In 1994, Marc Andreessen helped bring the internet to the public through Netscape, one of the first popular web browsers. Years later, he realized that while the internet made it easy to share information, it didn't make it easy to move money."
+      ]
+    },
+    {
+      "url": "/2026/06/08/Understanding-x402-Agent-Payments-on-Chain.html",
+      "title": "Understanding x402",
+      "excerpts": [
+        "Imagine you want a new pair of running shoes. You message your buyer-side agent : size ten, under $150, something durable for daily runs. It already knows your preferences from earlier conversations, so you do not repeat yourself.",
+        "It reaches seller agents, compares catalogs, and comes back with an offer you accept. Payment is next. You already gave your agent a USDC wallet for purchases like this, so it can pay without pulling you into a checkout flow.",
+        "The agent pays, confirms the purchase, and you are done. That is what x402 is meant to handle."
+      ]
+    },
+    {
+      "url": "/2026/06/22/Understanding-ERC-8004.html",
+      "title": "Understanding ERC-8004: Identity, Reputation, and Validation for Agents",
+      "excerpts": [
+        "Say your buyer agent finds a seller agent, negotiates over ACP, and pays with x402. Payment settles. Now what?",
+        "You still need to know who you paid, whether others trust them, and whether an independent party verified their claims. That is what ERC-8004 is for.",
+        "ERC-8004 is a protocol to build a global registry for agents, giving them identity, reputation, and validation on-chain."
+      ]
+    },
+    {
+      "url": "/2026/09/15/Important-Pillar-of-Agentic-Payment-Infrastructure.html",
+      "title": "Important Pillar of Agentic Payment Infrastructure",
+      "excerpts": [
+        "Software agents are starting to pay. Stablecoins already move the money. Everyday commerce still needs the protection layer that cards have and this rail does not.",
+        "| Section | Question it answers | | --- | --- | | 1. Problem Statement | Why do stablecoin payments still fail at everyday commerce despite solving settlement? | | 2. Market Opportunity | Why is this the right moment to build the protection layer stablecoins never had? | | 3. Strategic Approach | What do we build first, and what does it set up for later? | | 4. Engineering Architecture | How does the settlement flow actually work, step by step? | | 5. Protection and Dispute Layer | How do we bring card-network-grade protections onto a stablecoin rail? | | 6. Credit-Driven Agent Economy | What becomes possible once the infrastructure and protections both exist? | | 7. Risks and Open Questions | What is still unresolved? | | 8. Conclusion and Vision | What does this infrastructure look like five years out? |",
+        "Software agents are starting to act on our behalf, not just recommend things to us. A personal agent can already search, compare, negotiate, and increasingly, pay. For most of the internet's history, humans clicked \"buy.\" Soon, in a growing number of cases, an agent will."
+      ]
+    }
+  ]
+}
