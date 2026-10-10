@@ -40,7 +40,7 @@
   function upsert2d(key, d, isNewLatest, converted) {
     if (!d.el2d) {
       const el = document.createElement("div");
-      el.className = "map2d-dot " + colorFor(d.status);
+      el.className = "map2d-dot " + (d.place ? "place" : colorFor(d.status));
       const xy = toXY(d.lat, d.lon);
       el.style.left = xy.x + "%";
       el.style.top = xy.y + "%";
@@ -48,7 +48,7 @@
       layer2d.appendChild(el);
       d.el2d = el;
     } else {
-      d.el2d.className = "map2d-dot " + colorFor(d.status);
+      d.el2d.className = "map2d-dot " + (d.place ? "place" : colorFor(d.status));
     }
     document.querySelectorAll(".map2d-dot.latest").forEach((e) => e.classList.remove("latest"));
     if (isNewLatest) d.el2d.classList.add("latest");
@@ -128,7 +128,12 @@
       upsertDot(key, d, isNewLatest, converted) {
         const pos = vec(d.lat, d.lon, 1.015);
         if (!d.mesh3d) {
-          const mesh = new T.Mesh(new T.SphereGeometry(0.016, 14, 14), new T.MeshBasicMaterial({ color: colorHex(d.status) }));
+          const scale = d.place ? 0.012 + (Math.sqrt(d.count) / Math.sqrt(d.max || 1)) * 0.02 : 0.016;
+          const mesh = new T.Mesh(
+            new T.SphereGeometry(d.place ? 1 : 0.016, 14, 14),
+            new T.MeshBasicMaterial({ color: d.place ? 0xff5a1f : colorHex(d.status) }),
+          );
+          if (d.place) mesh.scale.setScalar(scale);
           mesh.position.copy(pos);
           earth.add(mesh);
           d.mesh3d = mesh;
@@ -189,6 +194,23 @@
     })();
     return three;
   }
+
+  // Same city lights as the dashboard observability globe: one dot per place the
+  // blog actually recorded, sized by how many requests came from there.
+  window.globeSyncPlaces = function (places) {
+    if (!places || !places.length) return;
+    initGlobe3d();
+    const max = Math.max(...places.map((p) => p.count || 1), 1);
+    for (const place of places) {
+      if (typeof place.lat !== "number" || typeof place.lon !== "number") continue;
+      const key = "place:" + place.lat.toFixed(2) + "," + place.lon.toFixed(2);
+      if (dots.has(key)) continue;
+      const d = { lat: place.lat, lon: place.lon, status: 200, ts: 0, city: place.city ? place.city + (place.count ? " · " + place.count : "") : "", place: true, count: place.count || 1, max };
+      dots.set(key, d);
+      upsert2d(key, d, false, false);
+      if (three) three.upsertDot(key, d, false, false);
+    }
+  };
 
   // ---------- real-data sync, called from app.js's pollLog() ----------
   window.globeSyncRows = function (rows) {

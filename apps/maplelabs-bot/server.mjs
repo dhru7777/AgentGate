@@ -13,7 +13,7 @@
 // The training bundle is still a local snapshot: paying does not unlock the live blog.
 
 import http from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { extname, join, normalize, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -82,54 +82,121 @@ async function logsInRange(fromBlock, toBlock, topics) {
   return [];
 }
 
-async function recentUsdc(address) {
+const HISTORY_PATH = join(HERE, "data", "usdc-history.json");
+// Monad testnet moves a few blocks a second, and eth_getLogs only accepts a
+// 100-block window. A short walk misses payments within a couple of minutes.
+// Remember every transfer we find so the dollar popover still has its last 3.
+const HISTORY_WINDOWS = 100;
+let history = [];
+let historyReady = false;
+let scanning = null;
+let scannedAt = 0;
+
+function padTopic(address) {
+  return "0x" + address.slice(2).toLowerCase().padStart(64, "0");
+}
+
+async function loadHistory() {
+  if (historyReady) return;
   try {
+    history = JSON.parse(await readFile(HISTORY_PATH, "utf8"));
+    if (!Array.isArray(history)) history = [];
+  } catch {
+    history = [];
+  }
+  historyReady = true;
+}
+
+function txsFor(address) {
+  const a = address.toLowerCase();
+  return history
+    .filter((row) => row.from?.toLowerCase() === a || row.to?.toLowerCase() === a)
+    .sort((x, y) => y.block - x.block)
+    .slice(0, 3)
+    .map((row) => ({
+      hash: row.hash,
+      direction: row.from.toLowerCase() === a ? "out" : "in",
+      amount: row.amount,
+      block: row.block,
+      explorer: row.explorer,
+    }));
+}
+
+async function rememberTransfers(rows) {
+  let changed = false;
+  for (const row of rows) {
+    if (!row?.hash || history.some((h) => h.hash === row.hash)) continue;
+    history.push(row);
+    changed = true;
+  }
+  history.sort((a, b) => b.block - a.block);
+  if (history.length > 40) history.length = 40;
+  if (!changed) return;
+  await mkdir(join(HERE, "data"), { recursive: true });
+  await writeFile(HISTORY_PATH, JSON.stringify(history, null, 2));
+}
+
+function refreshHistory() {
+  if (scanning) return scanning;
+  if (Date.now() - scannedAt < 90_000 && history.length) return Promise.resolve();
+  const pads = [BUYER_ADDRESS, SELLER_ADDRESS].filter((a) => /^0x[a-fA-F0-9]{40}$/.test(a)).map(padTopic);
+  if (!pads.length) return Promise.resolve();
+  scanning = (async () => {
     const latest = BigInt(await rpcCall("eth_blockNumber", []));
-    const pad = "0x" + address.slice(2).toLowerCase().padStart(64, "0");
     const logs = [];
-    // This RPC rejects eth_getLogs ranges wider than 100 blocks, and caps calls per second.
-    for (let i = 0; i < 12 && logs.length < 3; i++) {
+    for (let i = 0; i < HISTORY_WINDOWS; i++) {
       const end = latest - BigInt(i * 100);
       if (end < 0n) break;
       const start = end > 99n ? end - 99n : 0n;
       const fromBlock = "0x" + start.toString(16);
       const toBlock = "0x" + end.toString(16);
-      logs.push(...(await logsInRange(fromBlock, toBlock, [TRANSFER_TOPIC, pad]) || []));
-      logs.push(...(await logsInRange(fromBlock, toBlock, [TRANSFER_TOPIC, null, pad]) || []));
-      if (logs.length < 3) await sleep(80);
+      logs.push(...(await logsInRange(fromBlock, toBlock, [TRANSFER_TOPIC, pads]) || []));
+      logs.push(...(await logsInRange(fromBlock, toBlock, [TRANSFER_TOPIC, null, pads]) || []));
+      const unique = new Set(logs.map((log) => log.transactionHash));
+      if (unique.size >= 3) break;
+      await sleep(40);
     }
     const seen = new Set();
-    return logs
-      .map((log) => ({
+    const rows = [];
+    for (const log of logs) {
+      if (seen.has(log.transactionHash)) continue;
+      seen.add(log.transactionHash);
+      rows.push({
         hash: log.transactionHash,
-        direction: String(log.topics[1]).toLowerCase() === pad ? "out" : "in",
+        from: "0x" + String(log.topics[1]).slice(-40),
+        to: "0x" + String(log.topics[2]).slice(-40),
         amount: (Number(BigInt(log.data)) / 1e6).toFixed(2),
         block: Number(BigInt(log.blockNumber)),
         explorer: `${MONAD_EXPLORER}/tx/${log.transactionHash}`,
-      }))
-      .sort((a, b) => b.block - a.block)
-      .filter((row) => (seen.has(row.hash) ? false : seen.add(row.hash)))
-      .slice(0, 3);
-  } catch (err) {
-    console.error("recentUsdc", err.message);
-    return [];
-  }
+      });
+    }
+    await rememberTransfers(rows);
+    scannedAt = Date.now();
+  })().catch((err) => {
+    console.error("refreshHistory", err.message);
+  }).finally(() => {
+    scanning = null;
+  });
+  return scanning;
 }
 
 async function walletBalances(address) {
   if (!address) return null;
-  const [monWei, usdcRaw, txs] = await Promise.all([
+  await loadHistory();
+  const pending = refreshHistory();
+  // The first open of the dollar popover waits so Last 3 is filled, not blank.
+  if (!history.length) await pending;
+  const [monWei, usdcRaw] = await Promise.all([
     rpcCall("eth_getBalance", [address, "latest"]),
     // ERC-20 balanceOf(address), hand-encoded: no library needed for one read call.
     rpcCall("eth_call", [{ to: MONAD_USDC, data: "0x70a08231" + address.slice(2).toLowerCase().padStart(64, "0") }, "latest"]),
-    recentUsdc(address),
   ]);
   return {
     address,
     mon: (Number(BigInt(monWei)) / 1e18).toFixed(4),
     usdc: (Number(BigInt(usdcRaw || "0x0")) / 1e6).toFixed(2),
     explorer: `${MONAD_EXPLORER}/address/${address}`,
-    txs,
+    txs: history.length ? txsFor(address) : null,
   };
 }
 
@@ -661,6 +728,16 @@ async function handleApi(req, res, url) {
       const result = await transferUsdc({ to: SELLER_ADDRESS, amount });
       const path = typeof body.path === "string" ? body.path.slice(0, 300) : "";
       rememberSettlement({ at: new Date().toISOString(), amount: result.amount, path, txHash: result.txHash, explorer: result.explorer, from: result.from, to: result.to });
+      const receipt = await rpcCall("eth_getTransactionReceipt", [result.txHash]);
+      await loadHistory();
+      await rememberTransfers([{
+        hash: result.txHash,
+        from: result.from,
+        to: result.to,
+        amount: result.amount,
+        block: Number(BigInt(receipt?.blockNumber || "0x0")),
+        explorer: result.explorer,
+      }]);
       return json(200, { ok: true, path, ...result });
     } catch (err) {
       return json(err.status || 500, { ok: false, error: err.message || "Payment failed" });
@@ -681,6 +758,20 @@ async function handleApi(req, res, url) {
     const rule = (data.rules || []).find((r) => r.id === RULE_ID);
     const applied = await waitUntilLive(mode);
     return json(200, { mode: rule ? modeOf(rule) : null, applied });
+  }
+  if (url.pathname === "/api/places" && req.method === "GET") {
+    if (!ADMIN_KEY) return json(200, { places: [] });
+    const data = await siteJson("/api/analytics?range=week");
+    const places = (data.places || [])
+      .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lon))
+      .map((place) => ({
+        country: place.country || "",
+        city: place.city || place.country || "",
+        lat: place.lat,
+        lon: place.lon,
+        count: place.count || 0,
+      }));
+    return json(200, { places });
   }
   if (url.pathname === "/api/log") {
     if (!ADMIN_KEY) return json(200, { rows: [] });
@@ -719,9 +810,12 @@ http.createServer(async (req, res) => {
   } catch (err) {
     res.writeHead(err.code === "ENOENT" ? 404 : 500); res.end(err.code === "ENOENT" ? "Not found" : "Error");
   }
-}).listen(PORT, () => console.log(
+}).listen(PORT, () => {
+  loadHistory().then(() => refreshHistory());
+  console.log(
   `MapleLabsBot demo on http://localhost:${PORT} (crawls ${SITE}, policy switch ${ADMIN_KEY ? "on" : "off"}, ` +
   `ChatGPT brain ${OPENAI_KEY ? `live (${OPENAI_MODEL})` : "unavailable, no OPENAI_API_KEY"}, ` +
   `Claude brain ${ANTHROPIC_KEY ? `live (${ANTHROPIC_MODEL})` : "unavailable, no ANTHROPIC_API_KEY"}, ` +
   "MapleLabsBot's own script always available)"
-));
+  );
+});

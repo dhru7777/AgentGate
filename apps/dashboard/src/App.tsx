@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { defaultRules } from "./data";
 import { unlockOwnerAccount } from "./modules/mera/verifyService";
+import { MONAD_RECEIVE_ADDRESS } from "./modules/chain/monad";
 import { blogIsVerified, fetchBlogAnalytics, fetchBlogRules, markBlogVerified, updateBlogRules } from "./modules/services/blogAnalytics";
+import { readMonadAccount } from "./modules/wallet/etherscan";
 import { hideService, loadServices, nextServiceId, parseOrigin, saveUserServices } from "./modules/services/catalog";
 import type { AgentView, OwnerSession, Range, Rule, RuleMode, Service, ServiceView, Summary, Tab } from "./types";
 import { ServiceBoard } from "./screens/ServiceBoard";
@@ -58,8 +60,23 @@ export function App() {
     setLiveLoading(true);
     setLiveError("");
     fetchBlogAnalytics(range)
-      .then((summary) => {
-        if (!cancel) setLiveSummary(summary);
+      .then(async (summary) => {
+        if (cancel) return;
+        const windowMs = range === "day" ? 86_400_000 : range === "week" ? 7 * 86_400_000 : 30 * 86_400_000;
+        try {
+          const account = await readMonadAccount(MONAD_RECEIVE_ADDRESS);
+          const incoming = account.transactions.filter((tx) => tx.direction === "in" && Date.now() - tx.timeMs <= windowMs);
+          const chainRevenue = incoming.reduce((sum, tx) => sum + tx.amountNumber, 0);
+          const payers = new Set(incoming.map((tx) => tx.from.toLowerCase()).filter(Boolean)).size;
+          setLiveSummary({
+            ...summary,
+            revenueUsdc: summary.revenueUsdc + chainRevenue,
+            paidRequests: summary.paidRequests + incoming.length,
+            paidVisitors: summary.paidVisitors + payers,
+          });
+        } catch {
+          setLiveSummary(summary);
+        }
       })
       .catch((err: unknown) => {
         if (!cancel) setLiveError(err instanceof Error ? err.message : "Could not open the live dashboard.");

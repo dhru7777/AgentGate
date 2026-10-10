@@ -685,6 +685,21 @@ export default async (req: Request) => {
     return json({ mode: rule ? modeOf(rule) : null, applied });
   }
 
+  if (pathname === "/api/places" && req.method === "GET") {
+    if (!ADMIN_KEY) return json({ places: [] });
+    const data = await siteJson("/api/analytics?range=week");
+    const places = (data.places || [])
+      .filter((place: { lat?: number; lon?: number }) => Number.isFinite(place.lat) && Number.isFinite(place.lon))
+      .map((place: { country?: string; city?: string; lat: number; lon: number; count?: number }) => ({
+        country: place.country || "",
+        city: place.city || place.country || "",
+        lat: place.lat,
+        lon: place.lon,
+        count: place.count || 0,
+      }));
+    return json({ places });
+  }
+
   if (pathname === "/api/log") {
     if (!ADMIN_KEY) return json({ rows: [] });
     const data = await siteJson("/api/analytics?range=week");

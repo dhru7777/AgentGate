@@ -916,6 +916,10 @@ tr.is-selected { background: var(--accent-wash); }
 }
 
 .monad-txs a { color: var(--ink); }
+.monad-txs li.out strong,
+.monad-txs li.out span:first-child { color: var(--negative); }
+.monad-txs li.in strong,
+.monad-txs li.in span:first-child { color: var(--positive); }
 
 .rain-chip {
   width: 34px;

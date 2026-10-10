@@ -6,7 +6,10 @@ export type MonadTx = {
   href: string;
   direction: "in" | "out";
   amount: string;
+  amountNumber: number;
   when: string;
+  timeMs: number;
+  from: string;
 };
 
 export type MonadAccount = {
@@ -21,6 +24,7 @@ type RawTx = {
   to?: string;
   value?: string;
   timeStamp?: string;
+  tokenDecimal?: string;
 };
 
 function units(raw: string, decimals: number, places: number): string {
@@ -43,23 +47,29 @@ export async function readMonadAccount(address: string): Promise<MonadAccount> {
     error?: string;
     monWei?: string;
     usdcRaw?: string;
-    transactions?: RawTx[];
+    usdcTransfers?: RawTx[];
   };
   if (!response.ok || body.error) throw new Error(body.error ?? "Could not read the Monad account");
   const account = address.toLowerCase();
-  const transactions = (body.transactions ?? []).slice(0, 3).flatMap((tx) => {
+  const transactions = (body.usdcTransfers ?? []).slice(0, 3).flatMap((tx) => {
     if (!tx.hash) return [];
+    const decimals = Number(tx.tokenDecimal ?? "6");
+    const amountNumber = Number(units(tx.value ?? "0", Number.isFinite(decimals) ? decimals : 6, 2));
+    const seconds = Number(tx.timeStamp);
     return [{
       hash: tx.hash,
       href: explorerTxUrl(tx.hash),
       direction: tx.to?.toLowerCase() === account ? "in" as const : "out" as const,
-      amount: `${units(tx.value ?? "0", 18, 4)} MON`,
+      amount: `${amountNumber.toFixed(2)} USDC`,
+      amountNumber,
       when: when(tx.timeStamp),
+      timeMs: Number.isFinite(seconds) ? seconds * 1000 : Date.now(),
+      from: tx.from ?? "",
     }];
   });
   return {
     mon: units(body.monWei ?? "0", 18, 4),
-    usdc: units(body.usdcRaw ?? "0", 6, 4),
+    usdc: units(body.usdcRaw ?? "0", 6, 2),
     transactions,
   };
 }

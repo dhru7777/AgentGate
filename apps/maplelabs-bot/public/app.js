@@ -76,6 +76,7 @@ async function init() {
   setMode("search");
   setBrain("maplelabs");
   loadPolicy();
+  loadPlaces();
   pollLog();
   setInterval(pollLog, 2500);
   initWallets(cfg.wallets);
@@ -128,7 +129,11 @@ function initWallets(wallets) {
 function paintTx(id, txs) {
   const el = $(`#${id}`);
   if (!el) return;
-  if (!txs || !txs.length) {
+  if (txs == null) {
+    el.innerHTML = `<div class="tx-empty">Looking up transfers…</div>`;
+    return;
+  }
+  if (!txs.length) {
     el.innerHTML = `<div class="tx-empty">No USDC transfers yet</div>`;
     return;
   }
@@ -144,6 +149,7 @@ async function pollWallets() {
     const { buyer, seller } = await (await fetch("/api/wallets")).json();
     if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; paintTx("buyerTx", buyer.txs); }
     if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; paintTx("sellerTx", seller.txs); }
+    if ((buyer && buyer.txs == null) || (seller && seller.txs == null)) setTimeout(pollWallets, 2000);
   } catch { /* balances are a nice-to-have, ignore failures */ }
 }
 
@@ -392,6 +398,13 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
   // went out - polling once right when the run ends can race ahead of the last
   // write and show one row short. A second poll a moment later catches it.
   setTimeout(pollLog, 1800);
+}
+
+async function loadPlaces() {
+  try {
+    const { places } = await (await fetch("/api/places")).json();
+    if (window.globeSyncPlaces) window.globeSyncPlaces(places);
+  } catch { /* the gate log still draws whatever it has */ }
 }
 
 async function pollLog() {

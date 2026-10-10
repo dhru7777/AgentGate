@@ -61,11 +61,11 @@ export function WalletAccounts() {
           </div>
           <button type="button" className="obs-btn-sm" onClick={() => setReceiveOpen(true)}>Receive</button>
           <p className="wallet-pop-kicker">Recent transactions (last 3)</p>
-          {transactions.length === 0 ? <p className="tx-empty">No transactions yet</p> : (
+          {transactions.length === 0 ? <p className="tx-empty">No USDC transfers yet</p> : (
             <ul className="monad-txs">
               {transactions.map((tx) => (
-                <li key={tx.hash}>
-                  <span>{tx.direction}</span>
+                <li key={tx.hash} className={tx.direction}>
+                  <span>{tx.direction === "out" ? "−" : "+"}</span>
                   <strong>{tx.amount}</strong>
                   <a href={tx.href} target="_blank" rel="noreferrer">{shortAddress(tx.hash)}</a>
                   <span>{tx.when}</span>

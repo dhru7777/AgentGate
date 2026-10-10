@@ -362,6 +362,7 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 .map2d-dots { position: absolute; inset: 0; }
 .map2d-dot { position: absolute; width: 6px; height: 6px; margin: -3px; border-radius: 50%; transition: background .4s ease; }
 .map2d-dot.s200 { background: #3f8f5f; }
+.map2d-dot.place { background: #ff5a1f; box-shadow: 0 0 6px 2px rgba(255, 90, 31, 0.65); }
 .map2d-dot.s402 { background: #c0392b; }
 .map2d-dot.latest { width: 9px; height: 9px; margin: -4.5px; animation: map2dBreathe 1.6s ease-in-out infinite; }
 .map2d-dot.latest.s200 { box-shadow: 0 0 10px 4px rgba(63,143,95,.8); }
