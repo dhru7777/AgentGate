@@ -139,13 +139,20 @@ function withTimeSpent(visits: Visit[]): Visit[] {
 
 
 /** The owner's own test traffic (Austin, Cursor). Left out of every number the dashboard shows. */
-export const TEST_TRAFFIC_NOTE = "test traffic from Austin and Cursor excluded";
+export const TEST_TRAFFIC_NOTE = "test traffic from Austin, Cursor and today's MapleLabsBot testing excluded";
 
 type LiveRow = LivePayload["recent"][number];
 
+// Everything MapleLabsBot sent during today's build-and-test session, before this was deployed.
+// Only a fixed cutoff, not "MapleLabsBot" as a whole: once real visitors (judges, etc.) start
+// using the live demo, that traffic is real and should show up in the dashboard like any other.
+const TEST_SESSION_END = Date.parse("2026-10-10T02:52:20.000Z");
+
 function isTestRow(row: LiveRow): boolean {
   // Austin and Cursor are the owner's own testing. The "verify" probes are the demo checking that a policy change is live.
-  return (row.city ?? "").toLowerCase() === "austin" || row.agent === "Cursor" || /maplelabsbot-verify/i.test(row.ua ?? "");
+  if ((row.city ?? "").toLowerCase() === "austin" || row.agent === "Cursor" || /maplelabsbot-verify/i.test(row.ua ?? "")) return true;
+  const isMapleLabsBot = row.agent === "MapleLabsBot" || /maplelabsbot/i.test(row.ua ?? "");
+  return isMapleLabsBot && Date.parse(row.ts) <= TEST_SESSION_END;
 }
 
 function pageKey(path: string): string {
