@@ -210,6 +210,13 @@ const PRICES = {
   },
 };
 
+function monadQuote(mode, bundleChoice) {
+  const usd = mode === "train"
+    ? PRICES.train[bundleChoice === "full" ? "full" : "starter"].usd
+    : PRICES.search.perPage;
+  return `$${Number(usd).toFixed(2)} USDC`;
+}
+
 const MODES = {
   search: { label: "Search", token: "MapleLabsBot-Search", why: "Look something up, for a search index or to answer one question" },
   train: { label: "Train", token: "MapleLabsBot-Train", why: "Collect a bundle of posts to train on" },
@@ -291,6 +298,11 @@ async function loadSnapshot() {
   return SNAPSHOT;
 }
 
+function findPost(pathname) {
+  const want = String(pathname || "").split("?")[0];
+  return (SNAPSHOT?.posts || []).find((post) => post.url === want || want.endsWith(post.url));
+}
+
 function slugOf(url) {
   return decodeURIComponent(new URL(url, SITE).pathname).replace(/\.html$/, "").split("/").pop().replace(/-/g, " ");
 }
@@ -368,11 +380,9 @@ async function runScripted({ mode, question, respectRobots, bundleChoice }, emit
     const pick = urls[0];
     const r = pick ? await step(new URL(pick).pathname, "post", "post") : null;
     if (r && r.status === 402) {
-      let terms = {};
-      try { terms = JSON.parse(r.body); } catch { /* ignore */ }
-      emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network });
       const tier = bundleChoice || "starter";
       const paid = payForBundle(tier);
+      emit({ type: "payment", price: `$${Number(paid.charged).toFixed(2)} USDC`, network: "Monad" });
       emit({ type: "paid", tier: paid.tier.label, charged: paid.charged, hours: PRICES.train.hours });
       const bundle = await buildBundle(tier, question);
       emit({ type: "bundle", bundle });
@@ -389,10 +399,9 @@ async function runScripted({ mode, question, respectRobots, bundleChoice }, emit
     const title = r.body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || pick;
     emit({ type: "answer", text: `Read "${title}". This script just fetches, it does not summarize. Pick ChatGPT or Claude as the brain for a real read-and-answer.`, sources: [{ url: pick, title }] });
   } else if (r && r.status === 402) {
-    let terms = {};
-    try { terms = JSON.parse(r.body); } catch { /* ignore */ }
-    emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network });
-    emit({ type: "answer", text: `The site answered HTTP 402, it wants ${terms.pay?.amount || "a payment"} on ${terms.pay?.network || "Base"}. Search mode has no wallet for a single lookup, so I stopped.`, sources: [] });
+    const page = Number(PRICES.search.perPage).toFixed(2);
+    emit({ type: "payment", price: `$${page} USDC`, network: "Monad" });
+    emit({ type: "answer", text: "Approve to open it.", sources: [] });
   } else {
     emit({ type: "answer", text: "No posts to read for that question.", sources: [] });
   }
@@ -400,8 +409,7 @@ async function runScripted({ mode, question, respectRobots, bundleChoice }, emit
 }
 
 // ---------- real agent loop (either vendor) ----------
-// The tool list depends on the mode, not on which vendor is asked to drive it: Search has no
-// wallet for a single lookup, Train does. Either brain can run either mode.
+// Either brain can run either mode. A 402 in Search or Train is paid on Monad when the person clicks Approve.
 function toolsFor(mode) {
   const all = [
     {
@@ -432,8 +440,10 @@ function systemPrompt({ mode, brand, respectRobots, question }) {
   const m = MODES[mode];
   const priceLine = mode === "train"
     ? `Train pricing, paid in testnet USDC on Monad only after the person clicks Approve: ${PRICES.train.starter.label} $${PRICES.train.starter.usd} (up to ${PRICES.train.starter.postCap} posts), ${PRICES.train.full.label} $${PRICES.train.full.usd} (the whole archive), both valid ${PRICES.train.hours} hours.`
-    : `Search pricing: $${PRICES.search.perPage} ${PRICES.search.unit} per page on Monad testnet, sent only if the person clicks Approve.`;
+    : `Search pricing: $${PRICES.search.perPage} ${PRICES.search.unit} per page. On HTTP 402, tell the person to click Approve. That sends the USDC on Monad.`;
   return `You are MapleLabsBot, running in ${m.label} mode (${m.why}). Your User-Agent token is ${m.token}. ${BRAND_LINE[brand] || ""} You are a test crawler built to demonstrate AgentGate's paywall to someone evaluating it, so behave the way a real, well-behaved crawler would: check robots.txt before you fetch anything else, decide what to do next yourself based on what you actually find, and do not follow a fixed script.
+
+Settlement is always testnet USDC on Monad, from the buyer wallet to the seller, and only after the person clicks Approve. The live blog's 402 body may name another network. Ignore that. Never say the payment is on Base, and never say Search has no wallet.
 
 The operator's respect-robots.txt switch is currently ${respectRobots ? "ON, meaning if robots.txt disallows you for post URLs, you must stop and not request any post." : "OFF, meaning you may ignore a Disallow for this test run, but say plainly that you are doing so."}
 
@@ -441,7 +451,7 @@ ${priceLine}
 
 The person asked: "${question}"
 
-Work the way a careful crawler should: read /robots.txt first. Then use your judgment, read /llms.txt if it seems useful, read /sitemap.xml to find posts, and read whichever post(s) best fit the question (in Train mode, read more broadly, in Search mode, usually one or two is enough). If a post answers with HTTP 402 and you decide to pay (Train mode only, and only if you're not stopped by robots.txt), use pay_for_training_bundle. Before each tool call, say one short sentence in plain first-person language about what you're about to check and why, as ordinary message text alongside the call, the way you would narrate a thought out loud in a real conversation, not a log line. When you have what you need, or you are stopped, call finish with a short, honest answer, including saying so plainly if you were blocked or paid.`;
+Work the way a careful crawler should: read /robots.txt first. Then use your judgment, read /llms.txt if it seems useful, read /sitemap.xml to find posts, and read whichever post(s) best fit the question (in Train mode, read more broadly, in Search mode, usually one or two is enough). If a post answers with HTTP 402 and robots.txt did not stop you: in Train mode, use pay_for_training_bundle; in Search mode, stop fetching and tell the person to click Approve for the per-page Monad price. Before each tool call, say one short sentence in plain first-person language about what you're about to check and why, as ordinary message text alongside the call, the way you would narrate a thought out loud in a real conversation, not a log line. When you have what you need, or you are stopped, call finish with a short, honest answer, including saying so plainly if you were blocked or paid.`;
 }
 
 // Extended thinking, maximum effort. The whole content array (including any thinking blocks)
@@ -510,11 +520,12 @@ async function runAgent({ mode, question, respectRobots, bundleChoice }, emit) {
           } else {
             const r = await step(path, kind, kind === "post" ? "post" : path.replace("/", ""));
             if (r.status === 402) {
-              let terms = {};
-              try { terms = JSON.parse(r.body); } catch { /* ignore */ }
-              emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network, payTo: terms.pay?.payTo });
+              const price = monadQuote(mode, bundleChoice);
+              emit({ type: "payment", price, network: "Monad" });
+              result = `HTTP 402. Settle on Monad. The person clicks Approve to send ${price} from the buyer wallet to the seller. Do not say Base, and do not say Search has no wallet.`;
+            } else {
+              result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
             }
-            result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
           }
         }
       } else if (call.name === "pay_for_training_bundle") {
@@ -566,7 +577,7 @@ async function openaiCall(messages, system, mode) {
   return res.json();
 }
 
-async function runOpenAIAgent({ mode, question, respectRobots }, emit) {
+async function runOpenAIAgent({ mode, question, respectRobots, bundleChoice }, emit) {
   const m = MODES[mode];
   const stats = { requests: 0, served: 0, blocked: 0 };
   const step = fetcher(mode, "openai", OPENAI_MODEL, emit, stats);
@@ -609,11 +620,12 @@ async function runOpenAIAgent({ mode, question, respectRobots }, emit) {
           } else {
             const r = await step(path, kind, kind === "post" ? "post" : path.replace("/", ""));
             if (r.status === 402) {
-              let terms = {};
-              try { terms = JSON.parse(r.body); } catch { /* ignore */ }
-              emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network, payTo: terms.pay?.payTo });
+              const price = monadQuote(mode, bundleChoice);
+              emit({ type: "payment", price, network: "Monad" });
+              result = `HTTP 402. Settle on Monad. The person clicks Approve to send ${price} from the buyer wallet to the seller. Do not say Base, and do not say Search has no wallet.`;
+            } else {
+              result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
             }
-            result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
           }
         }
       } else if (call.function.name === "pay_for_training_bundle") {
@@ -701,6 +713,15 @@ async function handleApi(req, res, url) {
       wallets: { buyer: BUYER_ADDRESS || null, seller: SELLER_ADDRESS, chain: "Monad Testnet", explorer: MONAD_EXPLORER },
       canPay: Boolean(process.env.BUYER_WALLET_PRIVATE_KEY),
     });
+  }
+  if (url.pathname === "/api/post" && req.method === "GET") {
+    const want = url.searchParams.get("path") || "";
+    const paid = settlements.some((row) => row.path && (row.path === want || want.endsWith(row.path) || row.path.endsWith(want)));
+    if (!paid) return json(402, { found: false, error: "Approve the Monad payment first." });
+    await loadSnapshot();
+    const post = findPost(want);
+    if (!post) return json(404, { found: false });
+    return json(200, { found: true, title: post.title, url: post.url, excerpts: post.excerpts });
   }
   if (url.pathname === "/api/prices" && req.method === "GET") {
     return json(200, { prices: PRICES, chain: "Monad Testnet" });
@@ -796,6 +817,19 @@ async function handleApi(req, res, url) {
   return json(404, { error: "not found" });
 }
 
+async function ensureChargePolicy() {
+  if (!ADMIN_KEY) return;
+  try {
+    const data = await siteJson("/api/bot-rules");
+    const rule = (data.rules || []).find((r) => r.id === RULE_ID);
+    if (rule && modeOf(rule) === "charge") return;
+    await siteJson("/api/bot-rules", { method: "POST", body: JSON.stringify({ id: RULE_ID, allowed: false, charge: true }) });
+    console.log("MapleLabsBot policy set to charge");
+  } catch (err) {
+    console.error("ensureChargePolicy", err.message);
+  }
+}
+
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json" };
 
 http.createServer(async (req, res) => {
@@ -812,6 +846,7 @@ http.createServer(async (req, res) => {
   }
 }).listen(PORT, () => {
   loadHistory().then(() => refreshHistory());
+  ensureChargePolicy();
   console.log(
   `MapleLabsBot demo on http://localhost:${PORT} (crawls ${SITE}, policy switch ${ADMIN_KEY ? "on" : "off"}, ` +
   `ChatGPT brain ${OPENAI_KEY ? `live (${OPENAI_MODEL})` : "unavailable, no OPENAI_API_KEY"}, ` +

@@ -14,7 +14,7 @@ function pickLabel(id) {
   return "MapleLabsBot";
 }
 function pickWhy(id, cfg) {
-  if (id === "maplelabs") return "fixed script, no model call, always free to run";
+  if (id === "maplelabs") return "MapleLabsBot";
   const b = cfg.brains[id];
   return b && b.available ? `live model, ${b.model}` : "needs an API key on the server";
 }
@@ -171,8 +171,8 @@ function approvalCardHtml() {
   const to = (state.wallets && state.wallets.seller) || "";
   const ready = state.canPay ? "" : `<div class="approve-note">The server has no buyer key yet, so Approve cannot send.</div>`;
   return `<div class="approve-card" id="${id}" data-path="${esc(state.last402Path || "")}">
-    <b>HTTP 402</b> A human has to say yes before anything moves.
-    <div class="muted">${esc(quote.amount)} USDC on Monad to ${short(to)}</div>
+    <div class="approve-status">$${esc(quote.amount)} USDC on Monad, to ${short(to)}</div>
+    <div class="muted">Pay this, or not?</div>
     ${ready}
     <div class="approve-row">
       <button class="approve-yes" onclick="approvePay('${id}','${esc(quote.amount)}')">Approve</button>
@@ -181,18 +181,31 @@ function approvalCardHtml() {
   </div>`;
 }
 
+async function openPaidPost(path, amount) {
+  try {
+    const res = await fetch("/api/post?path=" + encodeURIComponent(path || ""));
+    const post = await res.json();
+    if (res.ok && post.found) {
+      const body = (post.excerpts || []).map((p) => `<p>${esc(p)}</p>`).join("");
+      return `<b>${esc(post.title)}</b>${body}`;
+    }
+  } catch { /* the receipt above still stands */ }
+  return `<b>Paid $${esc(amount)}.</b>`;
+}
+
 window.approvePay = async (id, amount) => {
   const card = document.getElementById(id);
   if (!card || card.dataset.sending === "1") return;
   card.dataset.sending = "1";
   card.classList.add("resolved");
-  card.querySelector("b").textContent = "Sending USDC on Monad…";
+  const status = card.querySelector(".approve-status");
+  status.textContent = "Sending…";
   const btns = [$("#buyerBtn"), $("#sellerBtn")].filter(Boolean);
   btns.forEach((b) => b.classList.add("flash"));
   setTimeout(() => btns.forEach((b) => b.classList.remove("flash")), 2000);
   if (!amount) {
-    card.querySelector("b").textContent = "Not sent";
-    card.insertAdjacentHTML("beforeend", `<div class="approve-note">Could not read an amount from this 402. Nothing was sent.</div>`);
+    status.textContent = "Not sent";
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note">No amount on this 402.</div>`);
     return;
   }
   try {
@@ -209,11 +222,17 @@ window.approvePay = async (id, amount) => {
       el.classList.remove("s402");
       el.classList.add("s200");
     });
-    card.querySelector("b").textContent = "402 approved";
-    card.insertAdjacentHTML("beforeend", `<div class="approve-note">${esc(data.amount)} USDC sent from the buyer wallet to the seller.</div><div class="approve-note"><a href="${esc(data.explorer)}" target="_blank" rel="noreferrer">View on MonadVision</a></div>`);
+    status.textContent = `Paid $${esc(data.amount)}.`;
+    card.querySelector(".muted").textContent = "";
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note"><a href="${esc(data.explorer)}" target="_blank" rel="noreferrer">MonadVision</a></div>`);
+    const opened = await openPaidPost(paidPath, data.amount);
+    const msg = card.closest(".msg");
+    const answer = msg && msg.querySelector(".answer");
+    if (answer) answer.innerHTML = opened;
+    else card.insertAdjacentHTML("afterend", `<div class="answer">${opened}</div>`);
     pollWallets();
   } catch (err) {
-    card.querySelector("b").textContent = "Not sent";
+    status.textContent = "Not sent";
     card.insertAdjacentHTML("beforeend", `<div class="approve-note">${esc(err.message || "Payment failed")}</div>`);
   }
 };
@@ -222,7 +241,8 @@ window.declinePay = (id) => {
   const card = document.getElementById(id);
   if (!card) return;
   card.classList.add("resolved");
-  card.querySelector("b").textContent = "Declined";
+  const status = card.querySelector(".approve-status");
+  if (status) status.textContent = "Declined";
 };
 
 function toggleMax(pane) {
@@ -230,7 +250,7 @@ function toggleMax(pane) {
   if (current === pane) delete document.body.dataset.max;
   else document.body.dataset.max = pane;
   document.querySelectorAll(".max-btn").forEach((b) => {
-    b.textContent = document.body.dataset.max === b.dataset.pane ? "⤡" : "⤢";
+    b.textContent = document.body.dataset.max === b.dataset.pane ? "fit" : "full";
     b.setAttribute("aria-label", document.body.dataset.max === b.dataset.pane ? "Restore" : "Maximize this pane");
   });
 }
@@ -247,13 +267,13 @@ function setMode(id) {
   const chat = document.querySelector(".chat");
   chat.dataset.mode = id;
   chat.dataset.brain = id === "train" ? "maplelabs" : state.brain;
-  $("#brainTag").textContent = id === "train" ? "training script" : brainTag();
+  $("#brainTag").textContent = brainTag();
 }
 function setBundle(id) {
   state.bundle = id;
   document.querySelectorAll(".bundle-opt").forEach((b) => b.classList.toggle("on", b.dataset.bundle === id));
 }
-const brainTag = () => (state.brain === "maplelabs" ? "fixed script" : pickWhy(state.brain, { brains: state.brains }));
+const brainTag = () => (state.brain === "maplelabs" ? "" : pickWhy(state.brain, { brains: state.brains }));
 function setBrain(id) {
   state.brain = id;
   document.querySelectorAll(".pick").forEach((b) => b.classList.toggle("on", b.dataset.brain === id));
@@ -353,6 +373,17 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
   const steps = bot.querySelector(".steps");
   document.querySelectorAll(".node").forEach((n) => (n.className = "node skip"));
   let req = 0, ok = 0, blocked = 0;
+  const put = (parent, html) => { parent.insertAdjacentHTML("beforeend", html); return parent.lastElementChild; };
+  const hold = async (el, also) => {
+    document.querySelectorAll(".focus").forEach((n) => n.classList.remove("focus"));
+    if (el && !el.classList.contains("approve-card")) el.classList.add("focus");
+    if (also) also.classList.add("focus");
+    const yes = document.querySelector(".approve-card:not(.resolved) .approve-yes");
+    if (yes) yes.classList.add("focus");
+    const shown = el || also;
+    if (shown) shown.scrollIntoView({ block: "nearest" });
+    await new Promise((r) => setTimeout(r, 1700));
+  };
 
   const res = await fetch("/api/run", { method: "POST", body: JSON.stringify({ mode: modeAtSend, brain: brainAtSend, question: q, bundleChoice, respectRobots: $("#respect").checked }) });
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
@@ -363,34 +394,39 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
     for (const p of parts) {
       if (!p.startsWith("data: ")) continue;
       const ev = JSON.parse(p.slice(6));
+      let shown = null;
+      let node = null;
       if (ev.type === "step") {
         req++; if (ev.status === 200) ok++; if (ev.status === 402) { blocked++; state.last402Path = ev.path; }
-        steps.insertAdjacentHTML("beforeend", `<div class="step"><span class="badge ${cls(ev.status, ev.path)}">${ev.status}</span><span>${esc(ev.label)}</span><code>${esc(ev.path.length > 42 ? ev.path.slice(0, 42) + "..." : ev.path)} &middot; ${ev.ms}ms</code></div>`);
-        const node = document.querySelector(`.node[data-k="${ev.kind}"]`); if (node) node.className = "node " + cls(ev.status, ev.path);
+        shown = put(steps, `<div class="step"><span class="badge ${cls(ev.status, ev.path)}">${ev.status}</span><span>${esc(ev.label)}</span><code>${esc(ev.path.length > 42 ? ev.path.slice(0, 42) + "..." : ev.path)}</code></div>`);
+        node = document.querySelector(`.node[data-k="${ev.kind}"]`);
+        if (node) node.className = "node " + cls(ev.status, ev.path);
         $("#kReq").textContent = req; $("#kOk").textContent = ok; $("#kBlock").textContent = blocked;
         beam(ev.path); navigateSite(ev.path);
       } else if (ev.type === "decision") {
-        steps.insertAdjacentHTML("beforeend", `<div class="note ${ev.violation || ev.allowed === false ? "warn" : ""}">${esc(ev.text)}</div>`);
-      } else if (ev.type === "aside") {
-        bot.insertAdjacentHTML("beforeend", `<div class="aside">${esc(ev.text)}</div>`);
-      } else if (ev.type === "thinking") {
-        bot.insertAdjacentHTML("beforeend", `<div class="thinking">${esc(ev.text.length > 240 ? ev.text.slice(0, 240) + "..." : ev.text)}</div>`);
+        shown = put(steps, `<div class="note ${ev.violation || ev.allowed === false ? "warn" : ""}">${esc(ev.text)}</div>`);
+      } else if (ev.type === "aside" || ev.type === "thinking" || ev.type === "answer" || ev.type === "error") {
+        if (ev.type === "answer" && ev.text === "Approve to open it.") { /* the Approve button is the ask */ }
+        else {
+          const bit = ev.type === "answer"
+            ? `${esc(ev.text)}${(ev.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.title)}</a>`).join("")}`
+            : esc(ev.type === "thinking" && ev.text.length > 240 ? ev.text.slice(0, 240) + "..." : ev.text);
+          if (!bot.querySelector(".chat-bubble")) put(bot, `<div class="chat-bubble answer"></div>`);
+          const bubble = bot.querySelector(".chat-bubble");
+          bubble.insertAdjacentHTML("beforeend", `<p>${bit}</p>`);
+          shown = bubble;
+        }
       } else if (ev.type === "payment") {
-        steps.insertAdjacentHTML("beforeend", `<div class="pay"><b>HTTP 402 Payment Required</b>${ev.price ? `<br>${esc(ev.price)} on ${esc(ev.network || "")}` : ""}</div>`);
-        bot.insertAdjacentHTML("beforeend", approvalCardHtml());
+        shown = put(bot, approvalCardHtml());
       } else if (ev.type === "paid") {
-        bot.insertAdjacentHTML("beforeend", `<div class="paid"><b>Quote ready</b><br>${esc(ev.tier)} &middot; $${ev.charged} USDC on Monad &middot; valid ${ev.hours}h<br><span class="muted">USDC moves when you click Approve.</span></div>`);
+        shown = put(bot, `<div class="paid">${esc(ev.tier)} · $${ev.charged} · ${ev.hours}h</div>`);
       } else if (ev.type === "bundle") {
         const b = ev.bundle;
         const blob = new Blob([JSON.stringify(b, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
-        bot.insertAdjacentHTML("beforeend", `<div class="bundle">${b.postCount} posts &middot; expires ${new Date(b.expiresAt).toLocaleString()}<br><span class="muted">${esc(b.source)}</span><br><a class="dl" href="${url}" download="maplelabs-bundle-${b.bundle}.json">Download bundle.json</a></div>`);
-      } else if (ev.type === "answer") {
-        bot.insertAdjacentHTML("beforeend", `<div class="answer">${esc(ev.text)}${(ev.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.title)}</a>`).join("")}</div>`);
-      } else if (ev.type === "error") {
-        bot.insertAdjacentHTML("beforeend", `<div class="answer">${esc(ev.text)}</div>`);
+        shown = put(bot, `<div class="bundle">${b.postCount} posts<br><a class="dl" href="${url}" download="maplelabs-bundle-${b.bundle}.json">Download bundle.json</a></div>`);
       }
-      target.scrollTop = 1e9;
+      if (shown) await hold(shown, node);
     }
   }
   setRunning(false); pollLog();

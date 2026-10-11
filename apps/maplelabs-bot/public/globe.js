@@ -12,6 +12,27 @@
   if (!stage3d || !stage2d) return;
 
   const dots = new Map(); // key -> { lat, lon, status, ts, el2d, mesh3d }
+
+  function liftEarth(image) {
+    const max = 1024;
+    const scale = Math.min(1, max / Math.max(image.width || 1, image.height || 1));
+    const w = Math.max(1, Math.round((image.width || 1) * scale));
+    const h = Math.max(1, Math.round((image.height || 1) * scale));
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(image, 0, 0, w, h);
+    const frame = ctx.getImageData(0, 0, w, h);
+    const px = frame.data;
+    for (let i = 0; i < px.length; i += 4) {
+      px[i] = Math.min(255, Math.pow(px[i] / 255, 0.42) * 255);
+      px[i + 1] = Math.min(255, Math.pow(px[i + 1] / 255, 0.42) * 255);
+      px[i + 2] = Math.min(255, Math.pow(px[i + 2] / 255, 0.42) * 255);
+    }
+    ctx.putImageData(frame, 0, 0);
+    return c;
+  }
   let latestKey = null;
 
   function keyFor(r) {
@@ -35,28 +56,52 @@
     stage2d.appendChild(layer2d);
   }
   initMap2d();
-  const toXY = (lat, lon) => ({ x: ((lon + 180) / 360) * 100, y: ((90 - lat) / 180) * 100 });
+  function frame2d() {
+    const img = stage2d.querySelector(".map2d-img");
+    const w = stage2d.clientWidth || 1;
+    const h = stage2d.clientHeight || 1;
+    const iw = (img && (img.naturalWidth || img.width)) || 2;
+    const ih = (img && (img.naturalHeight || img.height)) || 1;
+    const scale = Math.min(w / iw, h / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    return { x: (w - dw) / 2, y: (h - dh) / 2, w: dw, h: dh };
+  }
+  function pin(el, lat, lon) {
+    const f = frame2d();
+    el.style.left = (f.x + ((Number(lon) + 180) / 360) * f.w) + "px";
+    el.style.top = (f.y + ((90 - Number(lat)) / 180) * f.h) + "px";
+  }
+  function layout2d() {
+    layer2d.querySelectorAll("[data-lat]").forEach((el) => pin(el, el.dataset.lat, el.dataset.lon));
+  }
+  stage2d.querySelector(".map2d-img").addEventListener("load", layout2d);
+  new ResizeObserver(layout2d).observe(stage2d);
 
   function upsert2d(key, d, isNewLatest, converted) {
     if (!d.el2d) {
       const el = document.createElement("div");
       el.className = "map2d-dot " + (d.place ? "place" : colorFor(d.status));
-      const xy = toXY(d.lat, d.lon);
-      el.style.left = xy.x + "%";
-      el.style.top = xy.y + "%";
+      el.dataset.lat = d.lat;
+      el.dataset.lon = d.lon;
       el.title = d.city || "";
+      pin(el, d.lat, d.lon);
       layer2d.appendChild(el);
       d.el2d = el;
     } else {
       d.el2d.className = "map2d-dot " + (d.place ? "place" : colorFor(d.status));
+      d.el2d.dataset.lat = d.lat;
+      d.el2d.dataset.lon = d.lon;
+      pin(d.el2d, d.lat, d.lon);
     }
     document.querySelectorAll(".map2d-dot.latest").forEach((e) => e.classList.remove("latest"));
     if (isNewLatest) d.el2d.classList.add("latest");
     if (converted) {
       const ring = document.createElement("div");
       ring.className = "map2d-pulse s200";
-      ring.style.left = d.el2d.style.left;
-      ring.style.top = d.el2d.style.top;
+      ring.dataset.lat = d.lat;
+      ring.dataset.lon = d.lon;
+      pin(ring, d.lat, d.lon);
       layer2d.appendChild(ring);
       ring.addEventListener("animationend", () => ring.remove());
     }
@@ -73,22 +118,30 @@
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(35, 1, 0.1, 40);
     camera.position.set(0, 0.3, 3.3);
-    scene.add(new T.AmbientLight(0xb7c9df, 0.8));
-    const sun = new T.DirectionalLight(0xfff6ea, 2.0);
+    scene.add(new T.AmbientLight(0xffffff, 1.55));
+    const sun = new T.DirectionalLight(0xffffff, 0.85);
     sun.position.set(2.2, 0.8, 5);
     scene.add(sun);
+    const fill = new T.DirectionalLight(0xf4f7fb, 0.7);
+    fill.position.set(-2.4, 0.4, 2.2);
+    scene.add(fill);
 
     const earth = new T.Group();
     earth.rotation.x = 0.35;
     scene.add(earth);
     const loader = new T.TextureLoader();
-    const map = loader.load("/globe/earth.jpg");
     const bump = loader.load("/globe/earth-bump.jpg");
-    map.encoding = T.sRGBEncoding;
-    earth.add(new T.Mesh(
-      new T.SphereGeometry(1, 64, 64),
-      new T.MeshStandardMaterial({ map, emissiveMap: map, emissive: new T.Color(0xffffff), emissiveIntensity: 0.42, bumpMap: bump, bumpScale: 0.04, roughness: 0.82, metalness: 0.02 }),
-    ));
+    const earthMat = new T.MeshStandardMaterial({ color: 0xffffff, emissive: new T.Color(0xffffff), emissiveIntensity: 0.95, bumpMap: bump, bumpScale: 0.02, roughness: 0.55, metalness: 0 });
+    earth.add(new T.Mesh(new T.SphereGeometry(1, 64, 64), earthMat));
+    loader.load("/globe/earth.jpg", (tex) => {
+      const lifted = new T.CanvasTexture(liftEarth(tex.image));
+      lifted.encoding = T.sRGBEncoding;
+      earthMat.map = lifted;
+      earthMat.emissiveMap = lifted;
+      earthMat.needsUpdate = true;
+      const flat = stage2d.querySelector(".map2d-img");
+      if (flat) flat.src = lifted.image.toDataURL("image/jpeg", 0.86);
+    });
 
     function vec(lat, lon, r) {
       const phi = T.MathUtils.degToRad(90 - lat), theta = T.MathUtils.degToRad(lon + 180);
@@ -108,7 +161,7 @@
       return new T.CanvasTexture(c);
     })();
 
-    const colorHex = (status) => (status === 402 ? 0xc0392b : 0x3f8f5f);
+    const colorHex = (status) => (status === 402 ? 0xff2a2a : 0x1f9d4a);
     let latestGlow = null; // persistent breathing glow sprite on the current latest dot
     const rings = [];
 
@@ -128,10 +181,10 @@
       upsertDot(key, d, isNewLatest, converted) {
         const pos = vec(d.lat, d.lon, 1.015);
         if (!d.mesh3d) {
-          const scale = d.place ? 0.012 + (Math.sqrt(d.count) / Math.sqrt(d.max || 1)) * 0.02 : 0.016;
+          const scale = d.place ? 0.014 + (Math.sqrt(d.count) / Math.sqrt(d.max || 1)) * 0.022 : 0.028;
           const mesh = new T.Mesh(
-            new T.SphereGeometry(d.place ? 1 : 0.016, 14, 14),
-            new T.MeshBasicMaterial({ color: d.place ? 0xff5a1f : colorHex(d.status) }),
+            new T.SphereGeometry(d.place ? 1 : 0.028, 14, 14),
+            new T.MeshBasicMaterial({ color: d.place ? 0x26221c : colorHex(d.status) }),
           );
           if (d.place) mesh.scale.setScalar(scale);
           mesh.position.copy(pos);

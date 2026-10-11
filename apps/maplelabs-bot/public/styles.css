@@ -85,7 +85,20 @@ body[data-max="site"] .site-bottom {
 .mode.on { color: var(--accent); border-bottom-color: var(--accent); }
 .journey .check { margin: 0 0 10px; }
 .mode-why { margin: 0; padding: 8px 16px; font-size: 0.9rem; font-style: italic; color: var(--ink-soft); flex: 0 0 auto; }
-.journey-intro { margin: 0; padding: 12px 16px; font-size: 0.85rem; border-bottom: 1px solid var(--rule-soft); flex: 0 0 auto; }
+.pane.chat { background: #fff; color: #111; }
+.pane.chat .muted, .pane.chat .who-sub, .pane.chat .step code, .pane.chat .note, .pane.chat .approve-note { color: #444; }
+.pane.chat .msg.me { background: #111; color: #fff; }
+.pane.chat .badge, .pane.chat .s200, .pane.chat .s402, .pane.chat .sx { color: #111; border-color: #111; }
+.pane.chat .pay, .pane.chat .paid, .pane.chat .approve-card, .pane.chat .bundle,
+.pane.chat .bot.brand-maplelabs .answer, .pane.chat .bot.brand-anthropic { background: transparent; border: 0; color: #111; }
+.pane.chat .bot.brand-anthropic .who { color: #111; }
+.pane.chat .bot.brand-anthropic .avatar { background: #111; }
+.pane.chat .approve-card .approve-yes { background: #111; border-color: #111; color: #fff; }
+.pane.chat .approve-card .approve-no { background: #fff; color: #111; border-color: #111; }
+@keyframes focusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes clickPulse { 0%, 100% { box-shadow: 0 0 0 0 #111; } 50% { box-shadow: 0 0 0 4px #111; } }
+.chat .focus, .node.focus { animation: focusPulse 1.2s ease-in-out infinite; }
+.approve-yes.focus { animation: clickPulse 1.2s ease-in-out infinite; }
 
 .view { display: none; flex: 1; min-height: 0; flex-direction: column; }
 .chat[data-mode="search"] .view-search, .chat[data-mode="train"] .view-train { display: flex; }
@@ -118,7 +131,7 @@ body[data-max="site"] .site-bottom {
 .train-empty { margin: 0; color: var(--ink-faint); font-size: 0.92rem; max-width: 46ch; }
 
 .thread { flex: 1; overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 16px; }
-.msg.me { align-self: flex-end; background: var(--ink); color: var(--on-dark); padding: 7px 12px; border-radius: var(--radius); max-width: 85%; }
+.msg.me { align-self: flex-end; background: #111; color: #fff; padding: 8px 14px; border-radius: 18px 18px 4px 18px; max-width: 85%; }
 .bot { width: 100%; }
 
 .bot-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -148,6 +161,9 @@ body[data-max="site"] .site-bottom {
 .thinking { font-size: 0.85rem; color: var(--ink-faint); font-style: italic; padding: 2px 0 6px; animation: in .25s ease; }
 .thinking::before { content: "thinking: "; font-style: normal; }
 
+.chat-bubble { display: block; max-width: 92%; margin-top: 8px; padding: 10px 14px; border: 1px solid #111; border-radius: 18px 18px 18px 4px; background: #fff; color: #111; font-size: 1rem; line-height: 1.5; }
+.chat-bubble p { margin: 0 0 0.55em; }
+.chat-bubble p:last-child { margin-bottom: 0; }
 .answer { border-radius: var(--radius); padding: 10px 0; font-size: 1rem; line-height: 1.55; }
 .answer a { color: var(--accent); display: block; font-size: 0.88rem; margin-top: 4px; word-break: break-all; }
 
@@ -157,7 +173,7 @@ body[data-max="site"] .site-bottom {
 .bot.brand-openai .aside, .bot.brand-openai .answer { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 0.9rem; line-height: 1.6; }
 .bot.brand-openai .answer { background: transparent; padding-left: 0; }
 
-.bot.brand-anthropic { background: var(--wash); border-radius: var(--radius); padding: 12px 14px; margin: -4px -6px; }
+.bot.brand-anthropic { background: transparent; border-radius: 0; padding: 0; margin: 0; }
 .bot.brand-anthropic .avatar { background: #b4694b; }
 .bot.brand-anthropic .avatar::after { content: ""; width: 11px; height: 11px; background: var(--on-dark); clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%); }
 .bot.brand-anthropic .who { color: #9a5a40; }
@@ -200,12 +216,9 @@ body[data-max="site"] .site-bottom {
 .seg button:disabled { cursor: default; opacity: .6; }
 .hint { color: var(--ink-soft); font-size: 0.88rem; margin-top: 6px; }
 
-.flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.flow i { color: var(--ink-faint); font-style: normal; }
-.node { padding: 4px 10px; border-radius: var(--radius); border: 1px solid var(--rule); color: var(--ink-faint); background: var(--surface); font: 0.8rem var(--mono); transition: all .25s ease; }
-.node.s200 { background: var(--accent-wash); color: var(--positive); border-color: var(--positive); }
-.node.s402 { background: var(--wash); color: var(--negative); border-color: var(--negative); }
-.node.skip { background: var(--wash); border-color: var(--rule-soft); }
+.flow { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.node { padding: 1px 0; border: 0; background: transparent; color: #111; font: 0.85rem var(--mono); }
+.node.s200, .node.s402, .node.skip { background: transparent; border: 0; }
 .kpis { display: flex; gap: 24px; margin-top: 12px; }
 .kpis b { font: 500 1.6rem var(--display); margin-right: 6px; font-variant-numeric: tabular-nums; }
 .kpis span { color: var(--ink-faint); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -218,11 +231,10 @@ td[title] { font: 0.78rem var(--mono); }
 tr.fresh td { animation: flash 1.6s ease; }
 .pill { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
 
-.beam { position: relative; height: 26px; display: flex; align-items: center; justify-content: center; background: var(--paper); flex: 0 0 auto; }
-.beam::before { content: ""; position: absolute; left: 16px; right: 16px; top: 50%; height: 1px; background: repeating-linear-gradient(90deg, var(--rule) 0 6px, transparent 6px 12px); }
-.beam #beamLabel { position: relative; background: var(--paper); padding: 0 8px; font-size: 0.82rem; font-style: italic; color: var(--ink-soft); opacity: 0; transition: opacity .2s; }
-.beam.active #beamLabel { opacity: 1; animation: travel 1s ease; }
-.beam.active::after { content: "\2192"; position: absolute; left: 14px; color: var(--brass); animation: slide 1s linear; }
+.beam { position: relative; height: 26px; display: flex; align-items: center; justify-content: center; background: var(--paper); flex: 0 0 auto; overflow: hidden; }
+.beam::before { content: ""; position: absolute; left: 16px; right: 16px; top: 50%; height: 1px; background: var(--rule); }
+.beam #beamLabel { position: relative; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--paper); padding: 0 8px; font-size: 0.82rem; color: var(--ink-soft); opacity: 0; transition: opacity .2s; }
+.beam.active #beamLabel { opacity: 1; }
 
 iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 
@@ -344,6 +356,22 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 .chat[data-brain="anthropic"] .bundle, .chat[data-brain="openai"] .bundle { border-color: var(--deep-rule); }
 .chat[data-brain="anthropic"] .bundle a.dl, .chat[data-brain="openai"] .bundle a.dl { background: var(--on-dark); color: var(--deep); }
 
+/* One reply, one bubble, on either side of a chat. Brand washes do not flatten it. */
+.pane.chat .msg.me { background: #111; color: #fff; border-radius: 18px 18px 4px 18px; }
+.pane.chat .msg.bot .chat-bubble.answer {
+  display: block;
+  max-width: 92%;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border: 1px solid #111;
+  border-radius: 18px 18px 18px 4px;
+  background: #fff;
+  color: #111;
+  font-size: 1rem;
+  line-height: 1.5;
+  font-style: normal;
+}
+
 /* Globe card: always visible, no flip to policy - that lives in the next card down.
    The globe itself still flips, between the 3D globe and the 2D map. */
 .globecard .card-h { display: flex; align-items: center; gap: 8px; }
@@ -358,17 +386,17 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 .globe-stage, .globe-stage-2d { position: absolute; inset: 0; cursor: grab; touch-action: none; background: radial-gradient(circle at 50% 38%, #eef2f6 0%, var(--surface) 72%); }
 .globe-stage canvas, .globe-stage-2d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-.map2d-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.map2d-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; background: #d5e3f2; }
 .map2d-dots { position: absolute; inset: 0; }
-.map2d-dot { position: absolute; width: 6px; height: 6px; margin: -3px; border-radius: 50%; transition: background .4s ease; }
+.map2d-dot { position: absolute; width: 7px; height: 7px; margin: 0; transform: translate(-50%, -50%); border-radius: 50%; transition: background .4s ease; }
 .map2d-dot.s200 { background: #3f8f5f; }
-.map2d-dot.place { background: #ff5a1f; box-shadow: 0 0 6px 2px rgba(255, 90, 31, 0.65); }
-.map2d-dot.s402 { background: #c0392b; }
-.map2d-dot.latest { width: 9px; height: 9px; margin: -4.5px; animation: map2dBreathe 1.6s ease-in-out infinite; }
+.map2d-dot.place { background: #26221c; box-shadow: 0 0 6px 2px rgba(0, 0, 0, 0.35); }
+.map2d-dot.s402 { background: #ff2a2a; box-shadow: 0 0 0 1px #fff, 0 0 6px 2px rgba(255, 42, 42, 0.9); }
+.map2d-dot.latest { width: 10px; height: 10px; animation: map2dBreathe 1.6s ease-in-out infinite; }
 .map2d-dot.latest.s200 { box-shadow: 0 0 10px 4px rgba(63,143,95,.8); }
-.map2d-dot.latest.s402 { box-shadow: 0 0 10px 4px rgba(192,57,43,.8); }
+.map2d-dot.latest.s402 { box-shadow: 0 0 0 1px #fff, 0 0 10px 4px rgba(255, 42, 42, 0.95); }
 @keyframes map2dBreathe { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
-.map2d-pulse { position: absolute; width: 8px; height: 8px; margin: -4px; border-radius: 50%; pointer-events: none; animation: map2dPulse 1.3s ease-out forwards; }
+.map2d-pulse { position: absolute; width: 8px; height: 8px; margin: 0; border-radius: 50%; pointer-events: none; animation: map2dPulse 1.3s ease-out forwards; }
 .map2d-pulse.s200 { background: radial-gradient(circle, rgba(63,143,95,.9), rgba(63,143,95,0) 70%); box-shadow: 0 0 10px 4px rgba(63,143,95,.7); }
 .map2d-pulse.s402 { background: radial-gradient(circle, rgba(192,57,43,.9), rgba(192,57,43,0) 70%); box-shadow: 0 0 10px 4px rgba(192,57,43,.7); }
-@keyframes map2dPulse { from { transform: scale(1); opacity: 1; } to { transform: scale(5); opacity: 0; } }
+@keyframes map2dPulse { from { transform: translate(-50%, -50%) scale(1); opacity: 1; } to { transform: translate(-50%, -50%) scale(5); opacity: 0; } }

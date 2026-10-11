@@ -7,6 +7,8 @@
 
 import type { Config } from "https://edge.netlify.com";
 import SNAPSHOT from "../../data/snapshot.js";
+import { createPublicClient, createWalletClient, http, parseUnits, formatUnits, defineChain } from "https://esm.sh/viem@2.57.4";
+import { privateKeyToAccount } from "https://esm.sh/viem@2.57.4/accounts";
 
 const SITE = (Deno.env.get("SITE") || "https://dheeraj-work.netlify.app").replace(/\/$/, "");
 const ADMIN_KEY = Deno.env.get("ADMIN_KEY") || "";
@@ -108,6 +110,13 @@ const PRICES = {
     hours: 48,
   },
 };
+
+function monadQuote(mode: string, bundleChoice?: string) {
+  const usd = mode === "train"
+    ? PRICES.train[bundleChoice === "full" ? "full" : "starter"].usd
+    : PRICES.search.perPage;
+  return `$${Number(usd).toFixed(2)} USDC`;
+}
 
 const MODES = {
   search: { label: "Search", token: "MapleLabsBot-Search", why: "Look something up, for a search index or to answer one question" },
@@ -253,11 +262,9 @@ async function runScripted({ mode, question, respectRobots, bundleChoice }: RunO
     const pick = urls[0];
     const r = pick ? await step(new URL(pick).pathname, "post", "post") : null;
     if (r && r.status === 402) {
-      let terms: { pay?: { amount?: string; network?: string } } = {};
-      try { terms = JSON.parse(r.body); } catch { /* ignore */ }
-      emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network });
       const tier = bundleChoice || "starter";
       const paid = payForBundle(tier);
+      emit({ type: "payment", price: `$${Number(paid.charged).toFixed(2)} USDC`, network: "Monad" });
       emit({ type: "paid", tier: paid.tier.label, charged: paid.charged, hours: PRICES.train.hours });
       const bundle = buildBundle(tier, question);
       emit({ type: "bundle", bundle });
@@ -274,10 +281,9 @@ async function runScripted({ mode, question, respectRobots, bundleChoice }: RunO
     const title = r.body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || pick;
     emit({ type: "answer", text: `Read "${title}". This script just fetches, it does not summarize. Pick ChatGPT or Claude as the brain for a real read-and-answer.`, sources: [{ url: pick, title }] });
   } else if (r && r.status === 402) {
-    let terms: { pay?: { amount?: string; network?: string } } = {};
-    try { terms = JSON.parse(r.body); } catch { /* ignore */ }
-    emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network });
-    emit({ type: "answer", text: `The site answered HTTP 402, it wants ${terms.pay?.amount || "a payment"} on ${terms.pay?.network || "Base"}. Search mode has no wallet for a single lookup, so I stopped.`, sources: [] });
+    const page = Number(PRICES.search.perPage).toFixed(2);
+    emit({ type: "payment", price: `$${page} USDC`, network: "Monad" });
+    emit({ type: "answer", text: "Approve to open it.", sources: [] });
   } else {
     emit({ type: "answer", text: "No posts to read for that question.", sources: [] });
   }
@@ -315,7 +321,7 @@ function systemPrompt({ mode, brand, respectRobots, question }: { mode: string; 
   const m = MODES[mode];
   const priceLine = mode === "train"
     ? `Train pricing, paid in testnet USDC on Monad only after the person clicks Approve: ${PRICES.train.starter.label} $${PRICES.train.starter.usd} (up to ${PRICES.train.starter.postCap} posts), ${PRICES.train.full.label} $${PRICES.train.full.usd} (the whole archive), both valid ${PRICES.train.hours} hours.`
-    : `Search pricing: $${PRICES.search.perPage} ${PRICES.search.unit} per page on Monad testnet, sent only if the person clicks Approve.`;
+    : `Search pricing: $${PRICES.search.perPage} ${PRICES.search.unit} per page. On HTTP 402, tell the person to click Approve. That sends the USDC on Monad.`;
   return `You are MapleLabsBot, running in ${m.label} mode (${m.why}). Your User-Agent token is ${m.token}. ${BRAND_LINE[brand] || ""} You are a test crawler built to demonstrate AgentGate's paywall to someone evaluating it, so behave the way a real, well-behaved crawler would: check robots.txt before you fetch anything else, decide what to do next yourself based on what you actually find, and do not follow a fixed script.
 
 The operator's respect-robots.txt switch is currently ${respectRobots ? "ON, meaning if robots.txt disallows you for post URLs, you must stop and not request any post." : "OFF, meaning you may ignore a Disallow for this test run, but say plainly that you are doing so."}
@@ -324,7 +330,9 @@ ${priceLine}
 
 The person asked: "${question}"
 
-Work the way a careful crawler should: read /robots.txt first. Then use your judgment, read /llms.txt if it seems useful, read /sitemap.xml to find posts, and read whichever post(s) best fit the question (in Train mode, read more broadly, in Search mode, usually one or two is enough). If a post answers with HTTP 402 and you decide to pay (Train mode only, and only if you're not stopped by robots.txt), use pay_for_training_bundle. Before each tool call, say one short sentence in plain first-person language about what you're about to check and why, as ordinary message text alongside the call, the way you would narrate a thought out loud in a real conversation, not a log line. When you have what you need, or you are stopped, call finish with a short, honest answer, including saying so plainly if you were blocked or paid.`;
+Work the way a careful crawler should: read /robots.txt first. Then use your judgment, read /llms.txt if it seems useful, read /sitemap.xml to find posts, and read whichever post(s) best fit the question (in Train mode, read more broadly, in Search mode, usually one or two is enough). Settlement is always testnet USDC on Monad, from the buyer wallet to the seller, and only after the person clicks Approve. The live blog's 402 body may name another network. Ignore that. Never say the payment is on Base, and never say Search has no wallet.
+
+If a post answers with HTTP 402 and robots.txt did not stop you: in Train mode, use pay_for_training_bundle; in Search mode, stop fetching and tell the person to click Approve for the per-page Monad price. Before each tool call, say one short sentence in plain first-person language about what you're about to check and why, as ordinary message text alongside the call, the way you would narrate a thought out loud in a real conversation, not a log line. When you have what you need, or you are stopped, call finish with a short, honest answer, including saying so plainly if you were blocked or paid.`;
 }
 
 type RunOpts = { mode: string; brain?: string; question: string; respectRobots: boolean; bundleChoice?: string };
@@ -339,7 +347,7 @@ async function anthropicCall(messages: unknown[], system: string, mode: string) 
   return res.json();
 }
 
-async function runAgent({ mode, question, respectRobots }: RunOpts, emit: (ev: unknown) => void) {
+async function runAgent({ mode, question, respectRobots, bundleChoice }: RunOpts, emit: (ev: unknown) => void) {
   const m = MODES[mode];
   const stats = { requests: 0, served: 0, blocked: 0 };
   const step = fetcher(mode, "anthropic", ANTHROPIC_MODEL, emit, stats);
@@ -383,11 +391,12 @@ async function runAgent({ mode, question, respectRobots }: RunOpts, emit: (ev: u
           } else {
             const r = await step(path, kind, kind === "post" ? "post" : path.replace("/", ""));
             if (r.status === 402) {
-              let terms = {};
-              try { terms = JSON.parse(r.body); } catch { /* ignore */ }
-              emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network, payTo: terms.pay?.payTo });
+              const price = monadQuote(mode, bundleChoice);
+              emit({ type: "payment", price, network: "Monad" });
+              result = `HTTP 402. Settle on Monad. The person clicks Approve to send ${price} from the buyer wallet to the seller. Do not say Base, and do not say Search has no wallet.`;
+            } else {
+              result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
             }
-            result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
           }
         }
       } else if (call.name === "pay_for_training_bundle") {
@@ -430,7 +439,7 @@ async function openaiCall(messages: unknown[], system: string, mode: string) {
   return res.json();
 }
 
-async function runOpenAIAgent({ mode, question, respectRobots }: RunOpts, emit: (ev: unknown) => void) {
+async function runOpenAIAgent({ mode, question, respectRobots, bundleChoice }: RunOpts, emit: (ev: unknown) => void) {
   const m = MODES[mode];
   const stats = { requests: 0, served: 0, blocked: 0 };
   const step = fetcher(mode, "openai", OPENAI_MODEL, emit, stats);
@@ -471,11 +480,12 @@ async function runOpenAIAgent({ mode, question, respectRobots }: RunOpts, emit: 
           } else {
             const r = await step(path, kind, kind === "post" ? "post" : path.replace("/", ""));
             if (r.status === 402) {
-              let terms = {};
-              try { terms = JSON.parse(r.body); } catch { /* ignore */ }
-              emit({ type: "payment", price: terms.pay?.amount, network: terms.pay?.network, payTo: terms.pay?.payTo });
+              const price = monadQuote(mode, bundleChoice);
+              emit({ type: "payment", price, network: "Monad" });
+              result = `HTTP 402. Settle on Monad. The person clicks Approve to send ${price} from the buyer wallet to the seller. Do not say Base, and do not say Search has no wallet.`;
+            } else {
+              result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
             }
-            result = `HTTP ${r.status}\n${r.body.slice(0, 2500)}`;
           }
         }
       } else if (call.function.name === "pay_for_training_bundle") {
@@ -548,8 +558,6 @@ async function transferUsdc(amount: string) {
     (err as Error & { status?: number }).status = 503;
     throw err;
   }
-  const { createPublicClient, createWalletClient, http, parseUnits, formatUnits, defineChain } = await import("npm:viem@2.38.6");
-  const { privateKeyToAccount } = await import("npm:viem@2.38.6/accounts");
   const account = privateKeyToAccount(BUYER_KEY.startsWith("0x") ? BUYER_KEY : `0x${BUYER_KEY}`);
   if (BUYER_ADDRESS && account.address.toLowerCase() !== BUYER_ADDRESS.toLowerCase()) {
     const err = new Error("BUYER_WALLET_PRIVATE_KEY does not match BUYER_WALLET_ADDRESS. Nothing was sent.");
@@ -622,9 +630,22 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+let chargeEnsured = false;
+async function ensureChargePolicy() {
+  if (chargeEnsured || !ADMIN_KEY) return;
+  chargeEnsured = true;
+  try {
+    const data = await siteJson("/api/bot-rules");
+    const rule = (data.rules || []).find((r: { id?: string }) => r.id === RULE_ID);
+    if (rule && modeOf(rule) === "charge") return;
+    await siteJson("/api/bot-rules", { method: "POST", body: JSON.stringify({ id: RULE_ID, allowed: false, charge: true }) });
+  } catch { /* the demo still runs if the live switch cannot be set */ }
+}
+
 export default async (req: Request) => {
   const url = new URL(req.url);
   const pathname = url.pathname;
+  if (pathname === "/api/config" || pathname === "/api/run") ensureChargePolicy();
 
   if (pathname === "/api/config") {
     const brains = {
@@ -637,6 +658,15 @@ export default async (req: Request) => {
       wallets: { buyer: BUYER_ADDRESS || null, seller: SELLER_ADDRESS, chain: "Monad Testnet", explorer: MONAD_EXPLORER },
       canPay: Boolean(BUYER_KEY),
     });
+  }
+
+  if (pathname === "/api/post" && req.method === "GET") {
+    const want = url.searchParams.get("path") || "";
+    const paid = settlements.some((row) => row.path && (row.path === want || want.endsWith(row.path) || row.path.endsWith(want)));
+    if (!paid) return json({ found: false, error: "Approve the Monad payment first." }, 402);
+    const post = (SNAPSHOT.posts || []).find((item: { url: string }) => item.url === want || want.endsWith(item.url));
+    if (!post) return json({ found: false }, 404);
+    return json({ found: true, title: post.title, url: post.url, excerpts: post.excerpts });
   }
 
   if (pathname === "/api/prices" && req.method === "GET") {
