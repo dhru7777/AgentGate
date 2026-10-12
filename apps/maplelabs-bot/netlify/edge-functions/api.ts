@@ -12,6 +12,8 @@ import { privateKeyToAccount } from "https://esm.sh/viem@2.57.4/accounts";
 
 const SITE = (Deno.env.get("SITE") || "https://dheeraj-work.netlify.app").replace(/\/$/, "");
 const ADMIN_KEY = Deno.env.get("ADMIN_KEY") || "";
+// Read-only use: globe dots and the gate log. Never used to change the policy.
+const ANALYTICS_KEY = Deno.env.get("ANALYTICS_KEY") || ADMIN_KEY;
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-5-5";
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") || "";
@@ -531,6 +533,10 @@ async function siteJson(path: string, init: RequestInit = {}) {
   const res = await fetch(SITE + path + (path.includes("?") ? "&" : "?") + "auth=" + encodeURIComponent(ADMIN_KEY), { ...init, headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json", ...(init.headers || {}) } });
   return res.json();
 }
+async function siteRead(path: string) {
+  const res = await fetch(SITE + path + (path.includes("?") ? "&" : "?") + "auth=" + encodeURIComponent(ANALYTICS_KEY));
+  return res.json();
+}
 const modeOf = (r: { allowed: boolean; charge?: boolean }) => (r.allowed ? "free" : r.charge ? "charge" : "block");
 
 async function waitUntilLive(mode: string) {
@@ -654,7 +660,7 @@ export default async (req: Request) => {
       maplelabs: { available: true, model: null },
     };
     return json({
-      site: SITE, modes: MODES, prices: PRICES, canControl: Boolean(ADMIN_KEY), requiresPolicyKey: Boolean(DEMO_POLICY_KEY), brains,
+      site: SITE, modes: MODES, prices: PRICES, canControl: Boolean(ADMIN_KEY), canRead: Boolean(ANALYTICS_KEY), requiresPolicyKey: Boolean(DEMO_POLICY_KEY), brains,
       wallets: { buyer: BUYER_ADDRESS || null, seller: SELLER_ADDRESS, chain: "Monad Testnet", explorer: MONAD_EXPLORER },
       canPay: Boolean(BUYER_KEY),
     });
@@ -716,8 +722,8 @@ export default async (req: Request) => {
   }
 
   if (pathname === "/api/places" && req.method === "GET") {
-    if (!ADMIN_KEY) return json({ places: [] });
-    const data = await siteJson("/api/analytics?range=week");
+    if (!ANALYTICS_KEY) return json({ places: [] });
+    const data = await siteRead("/api/analytics?range=week");
     const places = (data.places || [])
       .filter((place: { lat?: number; lon?: number }) => Number.isFinite(place.lat) && Number.isFinite(place.lon))
       .map((place: { country?: string; city?: string; lat: number; lon: number; count?: number }) => ({
@@ -731,8 +737,8 @@ export default async (req: Request) => {
   }
 
   if (pathname === "/api/log") {
-    if (!ADMIN_KEY) return json({ rows: [] });
-    const data = await siteJson("/api/analytics?range=week");
+    if (!ANALYTICS_KEY) return json({ rows: [] });
+    const data = await siteRead("/api/analytics?range=week");
     const rows = (data.recent || [])
       .filter((r) => (/maplelabsbot/i.test(r.ua || "") || r.agent === "MapleLabsBot") && !/verify/i.test(r.ua || ""))
       .slice(0, 40)

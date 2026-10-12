@@ -24,7 +24,7 @@ async function init() {
   state.modes = cfg.modes;
   state.brains = cfg.brains;
   state.prices = cfg.prices;
-  state.canControl = cfg.canControl;
+  state.canControl = cfg.canControl; state.canRead = cfg.canRead;
   state.canPay = cfg.canPay;
   state.requiresPolicyKey = cfg.requiresPolicyKey;
 
@@ -287,7 +287,7 @@ async function loadPolicy() { paintPolicy((await (await fetch("/api/policy")).js
 function paintPolicy(mode) {
   document.querySelectorAll("#policy button").forEach((b) => { b.classList.toggle("on", b.dataset.mode === mode); b.disabled = !state.canControl; });
   $("#policyHint").textContent = !state.canControl
-    ? "Start the server with ADMIN_KEY to switch the policy here."
+    ? "Policy controls are off in this public preview. Owners switch the policy from the dashboard."
     : mode === "free" ? "robots.txt allows it. Posts are served."
     : mode === "charge" ? "robots.txt allows it. Posts answer HTTP 402 until paid."
     : "robots.txt disallows it. A bot that obeys never asks for a post.";
@@ -446,7 +446,7 @@ async function loadPlaces() {
 async function pollLog() {
   try {
     const { rows } = await (await fetch("/api/log")).json();
-    if (!state.canControl) { $("#logState").textContent = "needs ADMIN_KEY"; return; }
+    if (!state.canRead) { $("#logState").textContent = "off in this preview"; return; }
     $("#logState").textContent = rows.length ? `${rows.length} recent` : "nothing yet";
     const body = $("#log tbody"); const first = state.seen.size === 0;
     body.innerHTML = rows.map((r) => {
