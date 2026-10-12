@@ -53,7 +53,7 @@
   <section class="pane chat">
     <div class="pane-title">
       <span>The bot <span class="muted">what it decides and does</span></span>
-      <button class="max-btn" data-pane="chat" type="button" aria-label="Maximize this pane">full</button>
+      <button class="max-btn" data-pane="chat" type="button" aria-label="Maximize this pane" title="Maximize"><svg class="ico-max" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-4.5 4.5M2.5 13.5L7 9"/></svg><svg class="ico-min" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5H9.5V3M3 9.5h3.5V13M9.5 6.5L14 2M6.5 9.5L2 14"/></svg></button>
     </div>
     <div class="journey">
       <div class="modes" id="modes" role="tablist"></div>
@@ -67,7 +67,7 @@
         <div class="brain-row"><span class="brain-label">Answered by</span><div class="brains" id="brains"></div></div>
         <div class="row">
           <input id="q" autocomplete="off" placeholder="Ask it something about the blog..." required>
-          <button id="send" type="submit">Send</button>
+          <button id="send" type="submit" aria-label="Send" title="Send"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></button>
         </div>
         <div class="suggest" id="suggest"></div>
       </form>
@@ -89,7 +89,7 @@
     <div class="pane site-top">
       <div class="pane-title">
         <span>The gate <span class="muted">what the site sees, live</span></span>
-        <button class="max-btn" data-pane="gate" type="button" aria-label="Maximize this pane">full</button>
+        <button class="max-btn" data-pane="gate" type="button" aria-label="Maximize this pane" title="Maximize"><svg class="ico-max" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-4.5 4.5M2.5 13.5L7 9"/></svg><svg class="ico-min" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5H9.5V3M3 9.5h3.5V13M9.5 6.5L14 2M6.5 9.5L2 14"/></svg></button>
       </div>
       <div class="scroller">
         <div class="card globecard">
@@ -130,13 +130,13 @@
     <div class="pane site-bottom">
       <div class="pane-title">
         <span>Your blog, live <span class="muted" id="iframePath">dheeraj-work.netlify.app</span></span>
-        <button class="max-btn" data-pane="site" type="button" aria-label="Maximize this pane">full</button>
+        <button class="max-btn" data-pane="site" type="button" aria-label="Maximize this pane" title="Maximize"><svg class="ico-max" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-4.5 4.5M2.5 13.5L7 9"/></svg><svg class="ico-min" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5H9.5V3M3 9.5h3.5V13M9.5 6.5L14 2M6.5 9.5L2 14"/></svg></button>
       </div>
       <iframe id="siteFrame" src="about:blank" title="Live blog"></iframe>
     </div>
   </section>
 </main>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/vendor/three.min.js"></script>
 <script src="/globe.js"></script>
 <script src="/app.js"></script>
 </body>

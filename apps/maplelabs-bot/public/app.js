@@ -78,7 +78,7 @@ async function init() {
   loadPolicy();
   loadPlaces();
   pollLog();
-  setInterval(pollLog, 2500);
+  setInterval(() => { if (!document.hidden) pollLog(); }, 20000);
   initWallets(cfg.wallets);
 }
 
@@ -123,12 +123,16 @@ function initWallets(wallets) {
   $("#sellerExplorer").hidden = false;
 
   pollWallets();
-  setInterval(pollWallets, 15000);
+  setInterval(() => { if (!document.hidden) pollWallets(); }, 30000);
 }
 
-function paintTx(id, txs) {
+function paintTx(id, txs, busy) {
   const el = $(`#${id}`);
   if (!el) return;
+  if (busy && !(txs && txs.length)) {
+    el.innerHTML = `<div class="tx-empty">Explorer is busy, retrying shortly</div>`;
+    return;
+  }
   if (txs == null) {
     el.innerHTML = `<div class="tx-empty">Looking up transfers…</div>`;
     return;
@@ -250,8 +254,10 @@ function toggleMax(pane) {
   if (current === pane) delete document.body.dataset.max;
   else document.body.dataset.max = pane;
   document.querySelectorAll(".max-btn").forEach((b) => {
-    b.textContent = document.body.dataset.max === b.dataset.pane ? "fit" : "full";
-    b.setAttribute("aria-label", document.body.dataset.max === b.dataset.pane ? "Restore" : "Maximize this pane");
+    const on = document.body.dataset.max === b.dataset.pane;
+    b.classList.toggle("is-max", on);
+    b.title = on ? "Restore" : "Maximize";
+    b.setAttribute("aria-label", on ? "Restore" : "Maximize this pane");
   });
 }
 
@@ -283,11 +289,12 @@ function setBrain(id) {
   document.querySelector(".chat").dataset.brain = id;
 }
 
-async function loadPolicy() { paintPolicy((await (await fetch("/api/policy")).json()).mode); }
+async function loadPolicy() { paintPolicy((await (await fetch("/api/policy")).json()).mode || "charge"); }
 function paintPolicy(mode) {
   document.querySelectorAll("#policy button").forEach((b) => { b.classList.toggle("on", b.dataset.mode === mode); b.disabled = !state.canControl; });
+  const MODE_TEXT = { free: "robots.txt allows it. Posts are served.", charge: "robots.txt allows it. Posts answer HTTP 402 until paid.", block: "robots.txt disallows it. A bot that obeys never asks for a post." };
   $("#policyHint").textContent = !state.canControl
-    ? "Policy controls are off in this public preview. Owners switch the policy from the dashboard."
+    ? (MODE_TEXT[mode] || MODE_TEXT.charge) + " Read-only in this preview."
     : mode === "free" ? "robots.txt allows it. Posts are served."
     : mode === "charge" ? "robots.txt allows it. Posts answer HTTP 402 until paid."
     : "robots.txt disallows it. A bot that obeys never asks for a post.";

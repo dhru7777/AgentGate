@@ -109,10 +109,28 @@
 
   // ---------- 3D globe ----------
   let three = null;
+  let failed3d = false;
+  // If three.js did not load or WebGL is blocked, show the 2D map instead of an empty box.
+  function fallBackTo2d(reason) {
+    if (failed3d) return;
+    failed3d = true;
+    const flip = document.getElementById("globeFlip3d2d");
+    if (flip) flip.dataset.side = "2d";
+    const btn = document.getElementById("globeFlip");
+    if (btn) { btn.disabled = true; btn.title = "3D is unavailable here: " + reason; }
+    console.warn("3D globe unavailable:", reason);
+  }
   function initGlobe3d() {
-    if (!window.THREE || three) return three;
+    if (three || failed3d) return three;
+    if (!window.THREE) { fallBackTo2d("three.js did not load"); return null; }
     const T = THREE;
-    const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+    let renderer;
+    try {
+      renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (err) {
+      fallBackTo2d("WebGL is off or blocked in this browser");
+      return null;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     stage3d.appendChild(renderer.domElement);
     const scene = new T.Scene();
