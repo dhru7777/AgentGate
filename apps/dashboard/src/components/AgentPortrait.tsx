@@ -35,7 +35,13 @@ export function AgentPortrait({ name, agentId }: { name: string; agentId: number
     if (!host) return;
     const stage = host;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch {
+      // No WebGL (hardware acceleration off, blocked GPU): leave the 3D area empty instead of crashing the app.
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;

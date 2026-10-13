@@ -26,9 +26,9 @@
     const frame = ctx.getImageData(0, 0, w, h);
     const px = frame.data;
     for (let i = 0; i < px.length; i += 4) {
-      px[i] = Math.min(255, Math.pow(px[i] / 255, 0.42) * 255);
-      px[i + 1] = Math.min(255, Math.pow(px[i + 1] / 255, 0.42) * 255);
-      px[i + 2] = Math.min(255, Math.pow(px[i + 2] / 255, 0.42) * 255);
+      px[i] = Math.min(255, Math.pow(px[i] / 255, 0.72) * 255);
+      px[i + 1] = Math.min(255, Math.pow(px[i + 1] / 255, 0.72) * 255);
+      px[i + 2] = Math.min(255, Math.pow(px[i + 2] / 255, 0.72) * 255);
     }
     ctx.putImageData(frame, 0, 0);
     return c;
@@ -135,9 +135,10 @@
     stage3d.appendChild(renderer.domElement);
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(35, 1, 0.1, 40);
-    camera.position.set(0, 0.3, 3.3);
-    scene.add(new T.AmbientLight(0xffffff, 1.55));
-    const sun = new T.DirectionalLight(0xffffff, 0.85);
+    camera.position.set(0, 0.2, 3.45);
+    camera.lookAt(0, 0, 0);
+    scene.add(new T.AmbientLight(0xffffff, 0.8));
+    const sun = new T.DirectionalLight(0xffffff, 1.1);
     sun.position.set(2.2, 0.8, 5);
     scene.add(sun);
     const fill = new T.DirectionalLight(0xf4f7fb, 0.7);
@@ -149,7 +150,7 @@
     scene.add(earth);
     const loader = new T.TextureLoader();
     const bump = loader.load("/globe/earth-bump.jpg");
-    const earthMat = new T.MeshStandardMaterial({ color: 0xffffff, emissive: new T.Color(0xffffff), emissiveIntensity: 0.95, bumpMap: bump, bumpScale: 0.02, roughness: 0.55, metalness: 0 });
+    const earthMat = new T.MeshStandardMaterial({ color: 0xffffff, emissive: new T.Color(0xffffff), emissiveIntensity: 0.4, bumpMap: bump, bumpScale: 0.02, roughness: 0.55, metalness: 0 });
     earth.add(new T.Mesh(new T.SphereGeometry(1, 64, 64), earthMat));
     loader.load("/globe/earth.jpg", (tex) => {
       const lifted = new T.CanvasTexture(liftEarth(tex.image));
@@ -327,4 +328,15 @@
     });
   }
   setView("3d");
+})();
+
+// ---------- flip the gate pane between the map and the request details ----------
+(function () {
+  const scroller = document.getElementById("gateScroller");
+  if (!scroller) return;
+  const setGate = (side) => { scroller.dataset.gate = side; scroller.scrollTop = 0; };
+  const details = document.getElementById("gateDetails");
+  const back = document.getElementById("gateBack");
+  if (details) details.addEventListener("click", () => setGate("info"));
+  if (back) back.addEventListener("click", () => setGate("map"));
 })();

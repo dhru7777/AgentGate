@@ -157,7 +157,7 @@ function Graphs({ summary }: { summary: Summary }) {
   return (
     <>
       <Kpis summary={summary} />
-      <RequestMap places={summary.places} total={summary.recent.length} />
+      <RequestMap places={summary.places} visits={summary.recent} total={summary.recent.length} />
       <h2>Traffic</h2>
       <div className="obs-chart">
         <LineChart

@@ -91,10 +91,12 @@
         <span>The gate <span class="muted">what the site sees, live</span></span>
         <button class="max-btn" data-pane="gate" type="button" aria-label="Maximize this pane" title="Maximize"><svg class="ico-max" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-4.5 4.5M2.5 13.5L7 9"/></svg><svg class="ico-min" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5H9.5V3M3 9.5h3.5V13M9.5 6.5L14 2M6.5 9.5L2 14"/></svg></button>
       </div>
-      <div class="scroller">
+      <div class="scroller" id="gateScroller" data-gate="map">
+        <div class="gate-view gate-map">
         <div class="card globecard">
           <div class="card-h">Traffic <span class="muted">real requests, placed where the blog saw them from &middot; drag to spin &middot; only the newest glows</span>
             <button class="flip-btn" type="button" id="globeFlip" aria-label="Flip to 2D map">2D</button>
+            <button class="flip-btn" type="button" id="gateDetails" aria-label="Show request details">Details &#8635;</button>
           </div>
           <div class="globe-flip" id="globeFlip3d2d" data-side="3d">
             <div class="globe-flip-inner">
@@ -107,13 +109,19 @@
             </div>
           </div>
         </div>
-        <div class="card grow">
+        <div class="card">
           <div class="card-h">Policy for MapleLabsBot</div>
           <div class="seg" id="policy">
             <button data-mode="free">Free</button><button data-mode="charge">Charge</button><button data-mode="block">Block</button>
           </div>
           <div class="hint" id="policyHint"></div>
-          <div class="card-h" style="margin-top:14px">This request</div>
+        </div>
+        </div>
+        <div class="gate-view gate-info">
+        <div class="card grow">
+          <div class="card-h">This request
+            <button class="flip-btn" type="button" id="gateBack" aria-label="Back to the map">Map &#8635;</button>
+          </div>
           <div class="flow" id="flow">
             <div class="node" data-k="robots" title="Is MapleLabsBot allowed here at all? A bot that obeys stops right here if not.">robots.txt</div>
             <div class="node" data-k="llms" title="What are the terms? Price, network, and how to pay, in plain text for agents.">llms.txt</div>
@@ -123,6 +131,7 @@
           <div class="kpis"><div><b id="kReq">0</b><span>requests</span></div><div><b id="kOk">0</b><span>served</span></div><div><b id="kBlock">0</b><span>blocked 402</span></div></div>
           <div class="card-h" style="margin-top:14px">What the gate logged <span class="muted" id="logState"></span></div>
           <div class="table-wrap"><table id="log"><thead><tr><th>Time</th><th>Model</th><th>Purpose</th><th>Path</th><th>Status</th><th>robots.txt</th></tr></thead><tbody></tbody></table></div>
+        </div>
         </div>
       </div>
     </div>
