@@ -195,6 +195,10 @@ button, input, select { font-family: inherit; }
 
 .obs-main .ledger-card h2 { margin-top: 0; }
 
+.obs-main h2.obs-view-title { margin-top: 0; }
+
+.obs-main .table-wrap + .anomaly-alert { margin-top: 2.5rem; }
+
 .obs-gap-note { margin: 0.75rem 0 1.5rem; padding: 0.9rem 1rem; border: 1px solid var(--rule-soft); border-radius: var(--radius); background: var(--surface); }
 .obs-gap-note .obs-empty { margin: 0 0 10px; }
 

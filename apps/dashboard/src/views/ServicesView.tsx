@@ -200,32 +200,12 @@ function Graphs({ summary }: { summary: Summary }) {
   );
 }
 
-function Agents({ summary, rules, view, onView }: { summary: Summary; rules: Rule[]; view: AgentView; onView: (view: AgentView) => void }) {
-  const tabs: { id: AgentView; label: string }[] = [
-    { id: "all", label: "All Agents" },
-    { id: "compare", label: "Good vs Bad Agents" },
-    { id: "good", label: `Good Agents (${fmt(summary.goodVisitors)})` },
-    { id: "bad", label: `Bad Agents (${fmt(summary.badVisitors)})` },
-    { id: "paid", label: `Paid Agents (${fmt(summary.paidVisitors)})` },
-  ];
+function Agents({ summary, rules, view }: { summary: Summary; rules: Rule[]; view: AgentView }) {
   return (
     <>
-      <AgentAnomalies summary={summary} rules={rules} />
-      <div className="obs-highlights">
-        <div>
-          <span>Top agent</span>
-          <strong>{summary.topAgent ? `${summary.topAgent.name} · ${fmt(summary.topAgent.count)}` : "—"}</strong>
-        </div>
-      </div>
-      <div className="obs-subtabs">
-        {tabs.map((tab) => (
-          <button key={tab.id} type="button" className={view === tab.id ? "is-active" : ""} onClick={() => onView(tab.id)}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
       {view === "compare" && (
         <>
+          <h2 className="obs-view-title">Good vs bad agents</h2>
           <p className="obs-lead">
             Good agents hit HTTP 402 and stopped. Bad agents were gated but still fetched the page. Paid agents stopped at 402, paid USDC on Monad, and came back with a receipt.
           </p>
@@ -251,24 +231,33 @@ function Agents({ summary, rules, view, onView }: { summary: Summary; rules: Rul
       )}
       {view === "good" && (
         <>
+          <h2 className="obs-view-title">Good agents · {fmt(summary.goodVisitors)}</h2>
           <p className="obs-lead">Good agents hit HTTP 402 Payment Required and stopped.</p>
           <CountTable rows={summary.goodAgents} a="Agent" b="Visitors" />
         </>
       )}
       {view === "bad" && (
         <>
+          <h2 className="obs-view-title">Bad agents · {fmt(summary.badVisitors)}</h2>
           <p className="obs-lead">Bad agents were gated by HTTP 402 but still fetched the page without paying.</p>
           <CountTable rows={summary.badAgents} a="Agent" b="Visitors" />
         </>
       )}
       {view === "paid" && (
         <>
+          <h2 className="obs-view-title">Paid agents · {fmt(summary.paidVisitors)}</h2>
           <p className="obs-lead">Paid agents stopped at HTTP 402, paid USDC on Monad, and returned with a receipt.</p>
           <CountTable rows={summary.paidAgents} a="Agent" b="Visitors" />
         </>
       )}
       {view === "all" && (
         <>
+          <div className="obs-highlights">
+            <div>
+              <span>Top agent</span>
+              <strong>{summary.topAgent ? `${summary.topAgent.name} · ${fmt(summary.topAgent.count)}` : "—"}</strong>
+            </div>
+          </div>
           <p className="obs-lead">Agent traffic for this service. Open Good vs Bad to see who honored the paywall.</p>
           <div className="obs-kpis">
             <div className="obs-kpi"><span>Good agents</span><strong>{fmt(summary.goodVisitors)}</strong></div>
@@ -282,6 +271,7 @@ function Agents({ summary, rules, view, onView }: { summary: Summary; rules: Rul
             />
           </div>
           <CountTable rows={summary.topAgents} a="Agent" b="Requests" />
+          <AgentAnomalies summary={summary} rules={rules} />
         </>
       )}
     </>
@@ -686,7 +676,7 @@ export function ServicesView({
         </div>
         {view === "graphs" && <Graphs summary={summary} />}
         {view === "insights" && <Insights summary={summary} rules={rules} />}
-        {view === "agents" && <Agents summary={summary} rules={rules} view={agentView} onView={onAgentView} />}
+        {view === "agents" && <Agents summary={summary} rules={rules} view={agentView} />}
         {view === "pages" && <Pages summary={summary} />}
         {view === "events" && <Events summary={summary} />}
         {view === "permissions" && (
