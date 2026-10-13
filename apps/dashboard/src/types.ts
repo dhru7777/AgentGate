@@ -4,7 +4,7 @@ export type ServiceView = "graphs" | "insights" | "agents" | "pages" | "events" 
 
 export type AgentView = "all" | "compare" | "good" | "bad" | "paid";
 
-export type Tab = "services" | "wallet" | "identity" | "invoices";
+export type Tab = "observability" | "services" | "wallet" | "identity" | "invoices";
 
 export type VisitKind = "human" | "ai" | "search";
 
