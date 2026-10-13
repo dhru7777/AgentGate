@@ -180,7 +180,7 @@
       return new T.CanvasTexture(c);
     })();
 
-    const colorHex = (status) => (status === 402 ? 0xff2a2a : 0x1f9d4a);
+    const colorHex = (status) => (status === 402 ? 0xff2a2a : 0x34c26a);
     let latestGlow = null; // persistent breathing glow sprite on the current latest dot
     const rings = [];
 
@@ -203,7 +203,7 @@
           const scale = d.place ? 0.014 + (Math.sqrt(d.count) / Math.sqrt(d.max || 1)) * 0.022 : 0.028;
           const mesh = new T.Mesh(
             new T.SphereGeometry(d.place ? 1 : 0.028, 14, 14),
-            new T.MeshBasicMaterial({ color: d.place ? 0x26221c : colorHex(d.status) }),
+            new T.MeshBasicMaterial({ color: colorHex(d.status) }),
           );
           if (d.place) mesh.scale.setScalar(scale);
           mesh.position.copy(pos);
@@ -317,7 +317,7 @@
     const is3d = view === "3d";
     if (flipCard) flipCard.dataset.side = view;
     if (flipBtn) {
-      flipBtn.textContent = (is3d ? "2D" : "3D") + " ↽";
+      flipBtn.textContent = is3d ? "2D map" : "3D globe";
       flipBtn.setAttribute("aria-label", is3d ? "Flip to 2D map" : "Flip to 3D globe");
     }
     if (is3d) initGlobe3d();

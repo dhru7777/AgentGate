@@ -30,6 +30,7 @@ async function init() {
 
   $("#site").textContent = cfg.site.replace("https://", "");
   $("#iframePath").textContent = cfg.site.replace("https://", "");
+  $("#site").href = $("#iframePath").href = cfg.site;
   // Fix: show the live blog right away instead of leaving the pane blank until the first message.
   $("#siteFrame").src = cfg.site;
 
@@ -88,7 +89,7 @@ async function copyText(text) {
   try { await navigator.clipboard.writeText(text); } catch { /* clipboard may be unavailable, ignore */ }
 }
 
-// Each wallet is a small $ button that opens a popover on click, closes on an outside click
+// Each wallet is a labeled balance chip that opens a popover on click, closes on an outside click
 // or a second click on the same button, same interaction as midnightx402's ui-demo.
 function wirePopover(wrapId, btnId) {
   const wrap = $(`#${wrapId}`), btn = $(`#${btnId}`);
@@ -106,12 +107,12 @@ document.addEventListener("click", (e) => {
 function initWallets(wallets) {
   if (!wallets) return;
   state.wallets = wallets;
-  $("#buyerWrap").hidden = false;
-  $("#sellerWrap").hidden = false;
+  $("#wallets").hidden = false;
   wirePopover("buyerWrap", "buyerBtn");
   wirePopover("sellerWrap", "sellerBtn");
 
   $("#buyerAddr").textContent = short(wallets.buyer);
+  if (!wallets.buyer) { $("#buyerBal").textContent = "not set"; $("#buyerBal").classList.add("unset"); }
   $("#sellerAddr").textContent = short(wallets.seller);
   if (wallets.buyer) {
     $("#buyerAddr").onclick = () => copyText(wallets.buyer);
@@ -151,8 +152,8 @@ function paintTx(id, txs, busy) {
 async function pollWallets() {
   try {
     const { buyer, seller } = await (await fetch("/api/wallets")).json();
-    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; paintTx("buyerTx", buyer.txs); }
-    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; paintTx("sellerTx", seller.txs); }
+    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; $("#buyerBal").textContent = `${buyer.usdc} USDC`; paintTx("buyerTx", buyer.txs, buyer.txsBusy); }
+    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; $("#sellerBal").textContent = `${seller.usdc} USDC`; paintTx("sellerTx", seller.txs, seller.txsBusy); }
     if ((buyer && buyer.txs == null) || (seller && seller.txs == null)) setTimeout(pollWallets, 2000);
   } catch { /* balances are a nice-to-have, ignore failures */ }
 }
@@ -338,7 +339,7 @@ function beam(label) {
 function navigateSite(path) {
   const site = $("#site").textContent;
   $("#iframePath").textContent = site + path;
-  $("#siteFrame").src = "https://" + site + path;
+  $("#siteFrame").src = $("#iframePath").href = "https://" + site + path;
 }
 
 function avatarFor(brand) {

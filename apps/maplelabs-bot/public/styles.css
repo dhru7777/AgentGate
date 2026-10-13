@@ -37,7 +37,6 @@ a:hover { text-decoration: underline; }
 .top { display: flex; justify-content: space-between; align-items: center; padding: 10px 18px; background: var(--surface); border-bottom: 1px solid var(--rule-soft); position: relative; z-index: 60; flex: 0 0 auto; }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand strong { font-family: var(--display); font-size: 1.3rem; font-weight: 500; }
-.logo { width: 26px; height: 26px; border-radius: var(--radius); background: var(--accent); color: var(--on-dark); display: grid; place-items: center; font-family: var(--display); font-size: 1.05rem; font-weight: 600; }
 .dots { border: 1px solid var(--rule); background: var(--surface); border-radius: var(--radius); width: 26px; height: 26px; cursor: pointer; color: var(--ink-faint); font-size: 15px; line-height: 1; }
 .dots:hover { background: var(--wash-hover); color: var(--ink); }
 .dots-menu { position: absolute; top: 44px; left: 18px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 10px 12px; min-width: 300px; }
@@ -46,6 +45,8 @@ a:hover { text-decoration: underline; }
 .dots-row code { background: var(--wash); color: var(--accent); padding: 1px 6px; border-radius: var(--radius); font: 0.75rem var(--mono); }
 .dots-row span { color: var(--ink-soft); text-align: right; }
 .site { display: flex; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 0.95rem; }
+#site, #iframePath { color: inherit; text-decoration: none; }
+#site:hover, #iframePath:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--positive); }
 
 .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 16px; }
@@ -56,7 +57,9 @@ a:hover { text-decoration: underline; }
 .site-top .scroller { flex: 1; overflow: auto; padding-bottom: 6px; display: flex; flex-direction: column; }
 .site-bottom { overflow: hidden; }
 .pane-title { padding: 10px 16px; font-family: var(--display); font-size: 1.15rem; font-weight: 500; border-bottom: 1px solid var(--rule-soft); flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.pane-title .muted { font-family: var(--body); font-size: 0.9rem; font-style: italic; margin-left: 4px; }
+.pane-title > span:first-child { display: flex; align-items: center; min-width: 0; }
+.pane-title .muted { font-family: var(--body); font-size: 0.85rem; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--rule); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pane-title #iframePath { font: 0.75rem var(--mono); }
 .max-btn { border: 1px solid var(--rule); background: var(--surface); border-radius: var(--radius); width: 26px; height: 26px; cursor: pointer; color: var(--ink-faint); font-size: 13px; line-height: 1; flex: 0 0 auto; }
 .max-btn:hover { color: var(--ink); background: var(--wash-hover); }
 
@@ -114,7 +117,7 @@ body[data-max="site"] .site-bottom {
 
 .train-form { display: flex; flex-direction: column; gap: 6px; padding: 4px 16px 16px; border-bottom: 1px solid var(--rule-soft); flex: 0 0 auto; }
 .field-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); margin-top: 6px; }
-.field-label .muted { text-transform: none; letter-spacing: 0; font-style: italic; font-size: 0.85rem; }
+.field-label .muted { text-transform: none; letter-spacing: 0; font-size: 0.85rem; }
 .bundles { display: flex; gap: 8px; }
 .bundle-opt { flex: 1; text-align: left; border: 1px solid var(--rule); background: var(--surface); border-radius: var(--radius); padding: 8px 12px; cursor: pointer; color: var(--ink); transition: background .2s ease, border-color .2s ease; }
 .bundle-opt:hover { background: var(--wash-hover); }
@@ -205,7 +208,7 @@ body[data-max="site"] .site-bottom {
 .card:first-child { border-top: 0; }
 .card.grow { flex: 1; min-height: 140px; display: flex; flex-direction: column; }
 .card-h { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); margin-bottom: 8px; }
-.card-h .muted { text-transform: none; letter-spacing: 0; font-style: italic; font-size: 0.85rem; }
+.card-h .muted { text-transform: none; letter-spacing: 0; font-size: 0.85rem; }
 .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; }
 .seg button { border: 0; border-left: 1px solid var(--rule); background: var(--surface); padding: 5px 20px; cursor: pointer; color: var(--ink-soft); transition: background .2s ease, color .2s ease; }
 .seg button:first-child { border-left: 0; }
@@ -256,33 +259,34 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
   .journey { flex-wrap: wrap; }
   .brain-row { flex-wrap: wrap; }
   .bundles { flex-direction: column; }
-  #sellerPop { right: auto; left: 0; }
+  #buyerPop { right: auto; left: 0; }
 }
 
-/* Buyer and seller wallets: a small $ button each. Buyer sits on the left, seller on the right. */
-.pop-wrap { position: relative; }
+/* Buyer and seller wallets: one bordered group on the right, buyer -> seller. */
+.wallets { display: flex; align-items: center; height: 32px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--surface); margin-right: 10px; }
+.wallets[hidden] { display: none; }
+.w-arrow { display: flex; align-items: center; color: var(--ink-faint); padding: 0 2px; }
+.pop-wrap { position: relative; height: 100%; }
 .wallet-btn {
-  width: 28px; height: 28px; min-width: 28px; min-height: 28px;
-  border: 1px solid var(--rule); border-radius: var(--radius);
-  background: var(--surface); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font: 600 1rem var(--display); color: var(--positive);
-  padding: 0; margin-right: 4px;
+  height: 100%; border: 0; background: none; cursor: pointer; padding: 0 12px;
+  display: flex; align-items: center; gap: 8px; color: var(--ink); line-height: 1;
 }
-#sellerWrap .wallet-btn { color: var(--brass); }
-.wallet-btn:hover { background: var(--wash-hover); }
-.pop-wrap.open .wallet-btn { border-color: var(--ink); }
+.w-role { display: flex; align-items: center; gap: 6px; font: 500 0.7rem var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+.w-role::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--positive); }
+#sellerWrap .w-role::before { background: var(--brass); }
+.w-bal { font: 500 0.78rem var(--mono); font-variant-numeric: tabular-nums; }
+.w-bal.unset { font: italic 400 0.85rem var(--body); color: var(--ink-faint); }
+.wallet-btn:hover, .pop-wrap.open .wallet-btn { background: var(--wash); }
+.wallet-btn:focus-visible { outline: 1px solid var(--ink); outline-offset: -2px; }
 .wallet-btn.flash { animation: walletFlash 2s ease; }
-@keyframes walletFlash { 0%, 100% { background: var(--surface); } 30% { background: var(--accent-wash); border-color: var(--positive); } }
+@keyframes walletFlash { 0%, 100% { background: none; } 30% { background: var(--accent-wash); } }
 
 .popover {
-  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  display: none; position: absolute; top: calc(100% + 6px); right: 0;
   width: 290px; background: var(--surface);
   border: 1px solid var(--rule); border-radius: var(--radius);
   padding: 10px 12px; font-size: 0.88rem; z-index: 70;
 }
-/* The buyer button sits at the far left of the header, so its popover opens from the left edge. */
-#buyerPop { right: auto; left: 0; }
 .pop-wrap.open .popover { display: block; }
 .pop-title { font-size: 0.72rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
 .popover .kv { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-top: 1px solid var(--rule-soft); }
@@ -313,8 +317,9 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 /* Picking Claude or ChatGPT turns the chat pane into a dark panel (--deep), the only dark area
    the design system allows. No copy of either product's chrome or logo. */
 .chat[data-brain="anthropic"], .chat[data-brain="openai"] { background: var(--deep); border-color: var(--deep); color: var(--on-dark); }
-.chat[data-brain] .pane-title, .chat[data-brain] .composer, .chat[data-brain] .journey { border-color: var(--deep-rule); }
+.chat[data-brain] .pane-title, .chat[data-brain] .composer, .chat[data-brain] .journey, .chat[data-brain] .pane-title .muted { border-color: var(--deep-rule); }
 .chat[data-brain="maplelabs"] .pane-title, .chat[data-brain="maplelabs"] .composer, .chat[data-brain="maplelabs"] .journey { border-color: var(--rule-soft); }
+.chat[data-brain="maplelabs"] .pane-title .muted { border-color: var(--rule); }
 .chat[data-brain="anthropic"] .muted, .chat[data-brain="openai"] .muted,
 .chat[data-brain="anthropic"] .who-sub, .chat[data-brain="openai"] .who-sub,
 .chat[data-brain="anthropic"] .check, .chat[data-brain="openai"] .check,
@@ -376,7 +381,9 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
    The globe itself still flips, between the 3D globe and the 2D map. */
 .globecard .card-h { display: flex; align-items: center; gap: 8px; }
 .globecard .flip-btn { margin-left: auto; }
-.flip-btn { border: 1px solid var(--rule); background: transparent; color: inherit; border-radius: var(--radius); padding: 2px 10px; font: inherit; font-size: 0.78rem; text-transform: none; letter-spacing: 0; cursor: pointer; }
+.globecard .flip-btn + .flip-btn { margin-left: 0; }
+.globecard .card-h .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flip-btn { flex: none; height: 26px; display: inline-flex; align-items: center; border: 1px solid var(--rule); background: var(--surface); color: var(--ink-soft); border-radius: var(--radius); padding: 0 10px; font: inherit; font-size: 0.8rem; text-transform: none; letter-spacing: 0; white-space: nowrap; cursor: pointer; }
 .flip-btn:hover { background: var(--wash-hover); color: var(--ink); }
 .globe-flip { flex: 1; min-height: 0; max-width: 100%; aspect-ratio: 1 / 1; margin: 0 auto; position: relative; }
 .globecard { flex: 1; min-height: 200px; display: flex; flex-direction: column; }
@@ -404,7 +411,7 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 .map2d-dots { position: absolute; inset: 0; }
 .map2d-dot { position: absolute; width: 7px; height: 7px; margin: 0; transform: translate(-50%, -50%); border-radius: 50%; transition: background .4s ease; }
 .map2d-dot.s200 { background: #3f8f5f; }
-.map2d-dot.place { background: #26221c; box-shadow: 0 0 6px 2px rgba(0, 0, 0, 0.35); }
+.map2d-dot.place { background: #34c26a; box-shadow: 0 0 6px 2px rgba(52, 194, 106, 0.45); }
 .map2d-dot.s402 { background: #ff2a2a; box-shadow: 0 0 0 1px #fff, 0 0 6px 2px rgba(255, 42, 42, 0.9); }
 .map2d-dot.latest { width: 10px; height: 10px; animation: map2dBreathe 1.6s ease-in-out infinite; }
 .map2d-dot.latest.s200 { box-shadow: 0 0 10px 4px rgba(63,143,95,.8); }
