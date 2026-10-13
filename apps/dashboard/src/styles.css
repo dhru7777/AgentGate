@@ -625,12 +625,12 @@ tr.is-selected { background: var(--accent-wash); }
   letter-spacing: 0.04em;
 }
 
-.service-board { max-width: 920px; }
+.service-board { max-width: 1160px; }
 
 .service-board-head,
 .service-board-row {
   display: grid;
-  grid-template-columns: 160px 280px 180px;
+  grid-template-columns: 160px 280px 180px 230px;
   gap: 1.5rem;
   align-items: center;
 }
@@ -649,6 +649,8 @@ tr.is-selected { background: var(--accent-wash); }
 }
 
 .service-board-row strong { font-weight: normal; font-size: 1.15rem; }
+
+.service-board-none { color: var(--ink-faint); font-size: 0.9rem; }
 
 .service-name-line { display: flex; align-items: center; gap: 0.35rem; }
 

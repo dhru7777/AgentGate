@@ -2,6 +2,9 @@ import { useState, type FormEvent } from "react";
 import { ServicePreview } from "../components/ServicePreview";
 import type { Service } from "../types";
 
+/** The bot demo that crawls the live blog. Same product, one umbrella. */
+export const LIVE_BOT_PREVIEW_URL = "https://agent-preview-colosseum.netlify.app/";
+
 export function ServiceBoard({
   services,
   onOpenDeck,
@@ -36,13 +39,14 @@ export function ServiceBoard({
       <header className="obs-top">
         <div>
           <h1>Services</h1>
-          <p className="obs-meta">Each site has a preview and its own observability deck.</p>
+          <p className="obs-meta">Each site has a preview, its own observability deck, and a live view of the demo bot crawling it.</p>
         </div>
       </header>
       <div className="service-board-head">
         <span>Service name</span>
         <span>Human preview</span>
         <span>Observability Deck</span>
+        <span>Live Bot Crawling Preview</span>
       </div>
       {services.map((service) => (
         <div className="service-board-row" key={service.id}>
@@ -56,6 +60,13 @@ export function ServiceBoard({
           <button type="button" className="deck-link" onClick={() => onOpenDeck(service.id)}>
             Observability Deck
           </button>
+          {service.id === "blog" ? (
+            <a className="deck-link" href={LIVE_BOT_PREVIEW_URL} target="_blank" rel="noreferrer">
+              Live Bot Crawling Preview
+            </a>
+          ) : (
+            <span className="service-board-none">Not crawled by the demo bot</span>
+          )}
         </div>
       ))}
       <div className="service-board-add">
