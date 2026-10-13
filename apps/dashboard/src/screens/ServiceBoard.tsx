@@ -42,36 +42,39 @@ export function ServiceBoard({
           <p className="obs-meta">Each site has a preview, its own observability deck, and a live view of the demo bot crawling it.</p>
         </div>
       </header>
-      <div className="service-board-head">
-        <span>Service name</span>
-        <span>Human preview</span>
-        <span>Observability Deck</span>
-        <span>Live Bot Crawling Preview</span>
-      </div>
-      {services.map((service) => (
-        <div className="service-board-row" key={service.id}>
-          <div className="service-name-line">
-            <strong>{service.name}</strong>
-            <button type="button" className="service-delete" aria-label={`Delete ${service.name}`} onClick={() => onRemove(service.id)}>
-              ×
+      <div className="service-list">
+        {services.map((service) => (
+          <article className="service-card" key={service.id}>
+            <ServicePreview name={service.name} origin={service.origin} />
+            <div className="service-card-body">
+              <h2>{service.name}</h2>
+              <a className="service-origin" href={service.origin} target="_blank" rel="noreferrer">
+                {service.origin.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              </a>
+              <div className="service-card-actions">
+                <button type="button" className="obs-btn-sm is-primary" onClick={() => onOpenDeck(service.id)}>
+                  Observability deck
+                </button>
+                {service.id === "blog" ? (
+                  <a className="obs-btn-sm" href={LIVE_BOT_PREVIEW_URL} target="_blank" rel="noreferrer">
+                    Live bot crawling preview
+                    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5h5v5M9.5 2.5 3 9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </a>
+                ) : (
+                  <span className="service-board-none">Not crawled by the demo bot</span>
+                )}
+              </div>
+            </div>
+            <button type="button" className="service-delete" aria-label={`Delete ${service.name}`} title="Remove service" onClick={() => onRemove(service.id)}>
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3 3 9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
             </button>
-          </div>
-          <ServicePreview name={service.name} origin={service.origin} />
-          <button type="button" className="deck-link" onClick={() => onOpenDeck(service.id)}>
-            Observability Deck
-          </button>
-          {service.id === "blog" ? (
-            <a className="deck-link" href={LIVE_BOT_PREVIEW_URL} target="_blank" rel="noreferrer">
-              Live Bot Crawling Preview
-            </a>
-          ) : (
-            <span className="service-board-none">Not crawled by the demo bot</span>
-          )}
-        </div>
-      ))}
+          </article>
+        ))}
+      </div>
       <div className="service-board-add">
         {!adding && (
-          <button type="button" className="obs-btn-sm" onClick={() => { setAdding(true); setError(""); }}>
+          <button type="button" className="service-add-trigger" onClick={() => { setAdding(true); setError(""); }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
             Add service
           </button>
         )}

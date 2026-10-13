@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { BarChart, DoughnutChart, LineChart } from "../components/Charts";
 import { RequestMap } from "../components/RequestMap";
 import { Insights } from "./InsightsView";
@@ -609,33 +609,38 @@ export function ServicesView({
   return (
     <div className={`obs${service.verified && summary ? " analytics-pop" : ""}`}>
       <aside className="obs-nav">
-        <button type="button" className="deck-back" onClick={onBack}>Services</button>
-        <p className="obs-brand">{service.name}</p>
+        <button type="button" className="deck-back" onClick={onBack}>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          All services
+        </button>
+        <p className="obs-service">{service.name}</p>
         {service.verified && live && (
           <>
         <p className="obs-brand obs-brand-gap">Analytics</p>
         <div className="obs-nav-tabs">
           {nav.map((item) => (
-            <button key={item.id} type="button" data-tab={item.id} className={view === item.id ? "is-active" : ""} onClick={() => onView(item.id)}>
-              {item.label}
-            </button>
+            <Fragment key={item.id}>
+              <button type="button" data-tab={item.id} className={view === item.id ? "is-active" : ""} onClick={() => onView(item.id)}>
+                {item.label}
+              </button>
+              {item.id === "agents" && view === "agents" && (
+              <div className="obs-nav-sub">
+                {([
+                  ["all", "All Agents"],
+                  ["compare", "Good vs Bad"],
+                  ["good", "Good (Stopped)"],
+                  ["bad", "Bad (Bypassed)"],
+                  ["paid", "Paid (Returned)"],
+                ] as [AgentView, string][]).map(([id, label]) => (
+                  <button key={id} type="button" className={agentView === id ? "is-active" : ""} onClick={() => onAgentView(id)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              )}
+            </Fragment>
           ))}
         </div>
-        {view === "agents" && (
-          <div className="obs-nav-sub">
-            {([
-              ["all", "All Agents"],
-              ["compare", "Good vs Bad"],
-              ["good", "Good (Stopped)"],
-              ["bad", "Bad (Bypassed)"],
-              ["paid", "Paid (Returned)"],
-            ] as [AgentView, string][]).map(([id, label]) => (
-              <button key={id} type="button" className={agentView === id ? "is-active" : ""} onClick={() => onAgentView(id)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
           </>
         )}
       </aside>
