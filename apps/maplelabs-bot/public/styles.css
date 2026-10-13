@@ -386,6 +386,8 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 .flip-btn { flex: none; height: 26px; display: inline-flex; align-items: center; border: 1px solid var(--rule); background: var(--surface); color: var(--ink-soft); border-radius: var(--radius); padding: 0 10px; font: inherit; font-size: 0.8rem; text-transform: none; letter-spacing: 0; white-space: nowrap; cursor: pointer; }
 .flip-btn:hover { background: var(--wash-hover); color: var(--ink); }
 .globe-flip { flex: 1; min-height: 0; max-width: 100%; aspect-ratio: 1 / 1; margin: 0 auto; position: relative; }
+/* The flat map is 2:1, so it gets a 2:1 frame instead of the globe's square. */
+.globe-flip[data-side="2d"] { aspect-ratio: 2 / 1; }
 .globecard { flex: 1; min-height: 200px; display: flex; flex-direction: column; }
 .gate-map > .card:not(.globecard) { flex: none; }
 .globecard .card-h { flex: none; }
@@ -407,7 +409,7 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 .globe-stage, .globe-stage-2d { position: absolute; inset: 0; cursor: grab; touch-action: none; background: radial-gradient(circle at 50% 38%, #eef2f6 0%, var(--surface) 72%); }
 .globe-stage canvas, .globe-stage-2d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-.map2d-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; background: #d5e3f2; }
+.map2d-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .map2d-dots { position: absolute; inset: 0; }
 .map2d-dot { position: absolute; width: 7px; height: 7px; margin: 0; transform: translate(-50%, -50%); border-radius: 50%; transition: background .4s ease; }
 .map2d-dot.s200 { background: #3f8f5f; }

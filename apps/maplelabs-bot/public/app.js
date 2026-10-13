@@ -235,12 +235,22 @@ window.approvePay = async (id, amount) => {
     const answer = msg && msg.querySelector(".answer");
     if (answer) answer.innerHTML = opened;
     else card.insertAdjacentHTML("afterend", `<div class="answer">${opened}</div>`);
+    if (state.pendingBundle && state.pendingBundle.bundle) {
+      card.insertAdjacentHTML("afterend", bundleHtml(state.pendingBundle));
+      state.pendingBundle = null;
+    }
     pollWallets();
   } catch (err) {
     status.textContent = "Not sent";
     card.insertAdjacentHTML("beforeend", `<div class="approve-note">${esc(err.message || "Payment failed")}</div>`);
   }
 };
+
+function bundleHtml({ tier, hours, bundle }) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
+  const meta = [tier, `${bundle.postCount} posts`, hours && `${hours}h access`].filter(Boolean).join(" · ");
+  return `<div class="bundle">${esc(meta)}<br><a class="dl" href="${url}" download="maplelabs-bundle-${esc(bundle.bundle)}.json">Download bundle.json</a></div>`;
+}
 
 window.declinePay = (id) => {
   const card = document.getElementById(id);
@@ -393,6 +403,7 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
     await new Promise((r) => setTimeout(r, 1700));
   };
 
+  state.pendingBundle = null;
   const res = await fetch("/api/run", { method: "POST", body: JSON.stringify({ mode: modeAtSend, brain: brainAtSend, question: q, bundleChoice, respectRobots: $("#respect").checked }) });
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
   for (;;) {
@@ -427,12 +438,10 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
       } else if (ev.type === "payment") {
         shown = put(bot, approvalCardHtml());
       } else if (ev.type === "paid") {
-        shown = put(bot, `<div class="paid">${esc(ev.tier)} · $${ev.charged} · ${ev.hours}h</div>`);
+        // The server only quotes here. Nothing has moved until Approve succeeds.
+        state.pendingBundle = { ...state.pendingBundle, tier: ev.tier, hours: ev.hours };
       } else if (ev.type === "bundle") {
-        const b = ev.bundle;
-        const blob = new Blob([JSON.stringify(b, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        shown = put(bot, `<div class="bundle">${b.postCount} posts<br><a class="dl" href="${url}" download="maplelabs-bundle-${b.bundle}.json">Download bundle.json</a></div>`);
+        state.pendingBundle = { ...state.pendingBundle, bundle: ev.bundle };
       }
       if (shown) await hold(shown, node);
     }
