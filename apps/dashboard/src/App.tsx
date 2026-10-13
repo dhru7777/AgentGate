@@ -5,7 +5,8 @@ import { MONAD_RECEIVE_ADDRESS } from "./modules/chain/monad";
 import { fetchBlogAnalytics, fetchBlogRules, markBlogVerified, updateBlogRules } from "./modules/services/blogAnalytics";
 import { readMonadAccount } from "./modules/wallet/etherscan";
 import { hideService, loadServices, nextServiceId, parseOrigin, saveUserServices } from "./modules/services/catalog";
-import type { AgentView, OwnerSession, Range, Rule, RuleMode, Service, ServiceView, Summary, Tab } from "./types";
+import type { OwnerSession, Rule, RuleMode, Service, Summary, Tab } from "./types";
+import { buildPath, parseRoute, titleFor, type Route } from "./routes";
 import { ServiceBoard } from "./screens/ServiceBoard";
 import { IdentityView } from "./views/IdentityView";
 import { InvoicesView } from "./views/InvoicesView";
@@ -37,18 +38,37 @@ function initialRules(services: Service[]): Record<string, Rule[]> {
 }
 
 export function App() {
-  // The observability deck is the landing page.
-  const [tab, setTab] = useState<Tab>("observability");
+  // One URL per page. The route is the source of truth for tab, view, agent filter, service and range.
+  const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname, window.location.search));
+  const { tab, view, agentView, serviceId, range } = route;
+
+  function go(next: Partial<Route>) {
+    const merged = { ...route, ...next };
+    const path = buildPath(merged);
+    if (path !== window.location.pathname + window.location.search) window.history.pushState(null, "", path);
+    setRoute(merged);
+  }
+
+  useEffect(() => {
+    // "/" and unknown paths land on the observability deck, with a real URL.
+    const path = buildPath(route);
+    if (path !== window.location.pathname + window.location.search) window.history.replaceState(null, "", path);
+    const onPop = () => setRoute(parseRoute(window.location.pathname, window.location.search));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    document.title = titleFor(route);
+  }, [route]);
+
   const [services, setServices] = useState<Service[]>(() => loadServices());
   // The blog is this dashboard's own site, so its deck opens without a separate verify step.
   const [blogVerified, setBlogVerified] = useState(true);
   const [liveSummary, setLiveSummary] = useState<Summary | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState("");
-  const [serviceId, setServiceId] = useState("blog");
-  const [view, setView] = useState<ServiceView>("graphs");
-  const [agentView, setAgentView] = useState<AgentView>("all");
-  const [range, setRange] = useState<Range>("week");
   const [rulesByService, setRulesByService] = useState<Record<string, Rule[]>>(() => initialRules(loadServices()));
   const [owner, setOwner] = useState<OwnerSession | null>(null);
 
@@ -123,7 +143,7 @@ export function App() {
     ];
     setServices(next);
     saveUserServices(next);
-    setServiceId(id);
+    go({ serviceId: id });
     return null;
   }
 
@@ -132,10 +152,7 @@ export function App() {
     const next = services.filter((service) => service.id !== id);
     setServices(next);
     saveUserServices(next);
-    if (serviceId === id) {
-      setServiceId(next[0]?.id ?? "");
-      setTab("services");
-    }
+    if (serviceId === id) go({ tab: "services", serviceId: next[0]?.id ?? "blog" });
   }
 
   function verifyBlog() {
@@ -213,7 +230,7 @@ export function App() {
               type="button"
               className={tab === item.id ? "is-active" : ""}
               aria-current={tab === item.id ? "page" : undefined}
-              onClick={() => setTab(item.id)}
+              onClick={() => go({ tab: item.id })}
             >
               {item.label}
             </button>
@@ -225,13 +242,13 @@ export function App() {
         <ServicesView
           services={listed}
           serviceId={serviceId}
-          onBack={() => setTab("services")}
+          onBack={() => go({ tab: "services" })}
           view={view}
-          onView={setView}
+          onView={(next) => go({ view: next, agentView: "all" })}
           agentView={agentView}
-          onAgentView={setAgentView}
+          onAgentView={(next) => go({ view: "agents", agentView: next })}
           range={range}
-          onRange={setRange}
+          onRange={(next) => go({ range: next })}
           rules={rulesByService[serviceId] ?? defaultRules(serviceId)}
           onToggle={toggleRule}
           onAction={ruleAction}
@@ -244,7 +261,7 @@ export function App() {
       {tab === "services" && (
         <ServiceBoard
           services={listed}
-          onOpenDeck={(id) => { setServiceId(id); setView("graphs"); setTab("observability"); }}
+          onOpenDeck={(id) => go({ tab: "observability", serviceId: id, view: "graphs", agentView: "all" })}
           onAdd={addService}
           onRemove={removeService}
         />
