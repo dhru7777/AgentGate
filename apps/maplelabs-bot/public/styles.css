@@ -443,3 +443,6 @@ iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: #fff; }
 .pane.chat .composer .row input:focus { outline: none; }
 .pane.chat #send { width: 36px; height: 36px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
 .pane.chat #send svg { display: block; }
+
+.back-link { margin-right: 12px; padding: 2px 10px; border: 1px solid var(--rule); border-radius: var(--radius); color: var(--ink-soft); font-size: 0.82rem; text-decoration: none; white-space: nowrap; }
+.back-link:hover { background: var(--wash-hover); color: var(--ink); }
