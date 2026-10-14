@@ -95,11 +95,34 @@ function findTarget(selectors?: string[]): HTMLElement | null {
   return null;
 }
 
+const HIDE_KEY = "agentgate.walkthroughHidden";
+
+function readHidden(): boolean {
+  try {
+    // /anything?walkthrough=1 brings the button back after it was minimized.
+    if (new URLSearchParams(window.location.search).get("walkthrough")) localStorage.removeItem(HIDE_KEY);
+    return localStorage.getItem(HIDE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function WalkthroughButton({ onClick, running }: { onClick: () => void; running: boolean }) {
+  const [hidden, setHidden] = useState(readHidden);
+  if (hidden && !running) return null;
+  function minimize() {
+    try { localStorage.setItem(HIDE_KEY, "1"); } catch { /* the button just stays hidden for this visit */ }
+    setHidden(true);
+  }
   return (
-    <button type="button" className="walkthrough-btn" onClick={onClick} disabled={running}>
-      Walkthrough for Judges
-    </button>
+    <div className="walkthrough-dock">
+      <button type="button" className="walkthrough-btn" onClick={onClick} disabled={running}>
+        Walkthrough for Judges
+      </button>
+      <button type="button" className="walkthrough-min" onClick={minimize} disabled={running} aria-label="Hide the walkthrough button" title="Hide this button">
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
+      </button>
+    </div>
   );
 }
 

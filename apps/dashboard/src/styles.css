@@ -1243,8 +1243,16 @@ tr.is-selected { background: var(--accent-wash); }
 .obs-mode-btn.is-active.is-block { background: var(--negative); }
 
 /* Walkthrough for Judges */
+.walkthrough-dock { position: fixed; right: 20px; bottom: 20px; z-index: 900; display: flex; align-items: center; gap: 6px; }
+.walkthrough-min {
+  width: 24px; height: 24px; display: grid; place-items: center; padding: 0; cursor: pointer;
+  background: var(--surface); color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 50%;
+}
+.walkthrough-min:hover:not(:disabled) { color: var(--ink); background: var(--wash-hover); }
+.walkthrough-min:disabled { opacity: .4; cursor: default; }
+.walkthrough-min:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .walkthrough-btn {
-  position: fixed; right: 20px; bottom: 20px; z-index: 900; font: inherit; font-size: 15px;
+  font: inherit; font-size: 15px;
   box-shadow: 3px 3px 0 var(--brass);
   background: var(--accent); color: var(--on-dark); border: 1px solid var(--accent); border-radius: var(--radius);
   padding: 6px 14px; font-weight: 500; cursor: pointer; white-space: nowrap;
