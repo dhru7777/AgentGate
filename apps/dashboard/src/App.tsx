@@ -7,6 +7,7 @@ import { readMonadAccount } from "./modules/wallet/etherscan";
 import { hideService, loadServices, nextServiceId, parseOrigin, saveUserServices } from "./modules/services/catalog";
 import type { OwnerSession, Rule, RuleMode, Service, Summary, Tab } from "./types";
 import { buildPath, parseRoute, titleFor, type Route } from "./routes";
+import { Walkthrough, WalkthroughButton } from "./components/Walkthrough";
 import { ServiceBoard } from "./screens/ServiceBoard";
 import { IdentityView } from "./views/IdentityView";
 import { InvoicesView } from "./views/InvoicesView";
@@ -71,6 +72,8 @@ export function App() {
   const [liveError, setLiveError] = useState("");
   const [rulesByService, setRulesByService] = useState<Record<string, Rule[]>>(() => initialRules(loadServices()));
   const [owner, setOwner] = useState<OwnerSession | null>(null);
+  // Guided tour for judges: null when closed, otherwise the step number.
+  const [walk, setWalk] = useState<number | null>(null);
 
   useEffect(() => {
     localStorage.setItem("agentledger.rules", JSON.stringify(rulesByService));
@@ -278,6 +281,8 @@ export function App() {
       )}
       {tab === "identity" && <IdentityView services={services} />}
       {tab === "invoices" && <InvoicesView />}
+      <WalkthroughButton running={walk !== null} onClick={() => setWalk(0)} />
+      <Walkthrough index={walk} go={go} onIndex={setWalk} />
     </>
   );
 }

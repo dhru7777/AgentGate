@@ -1241,3 +1241,43 @@ tr.is-selected { background: var(--accent-wash); }
 .obs-mode-btn.is-active.is-free { background: var(--positive); }
 .obs-mode-btn.is-active.is-charge { background: var(--accent); }
 .obs-mode-btn.is-active.is-block { background: var(--negative); }
+
+/* Walkthrough for Judges */
+.walkthrough-btn {
+  position: fixed; right: 20px; bottom: 20px; z-index: 900; font: inherit; font-size: 15px;
+  box-shadow: 3px 3px 0 var(--brass);
+  background: var(--accent); color: var(--on-dark); border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 6px 14px; font-weight: 500; cursor: pointer; white-space: nowrap;
+  animation: walkthrough-glow 2.4s ease-in-out infinite;
+}
+.walkthrough-btn:hover:not(:disabled) { color: var(--on-dark); filter: brightness(1.15); }
+.walkthrough-btn:disabled { animation: none; opacity: .55; cursor: default; }
+.walkthrough-btn:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+@keyframes walkthrough-glow {
+  0%, 100% { box-shadow: 3px 3px 0 var(--brass), 0 0 0 0 rgba(140, 109, 58, 0); }
+  50% { box-shadow: 3px 3px 0 var(--brass), 0 0 0 6px rgba(140, 109, 58, .35); }
+}
+.tour-root { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
+.tour-dim { position: absolute; inset: 0; background: rgba(28, 25, 21, .55); }
+.tour-spot {
+  position: absolute; border: 2px solid var(--brass); border-radius: 6px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(28, 25, 21, .55);
+  transition: top .35s ease, left .35s ease, width .35s ease, height .35s ease;
+}
+.tour-tip {
+  position: absolute; pointer-events: auto; padding: 14px 16px 12px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--ink); border-radius: var(--radius);
+  box-shadow: 5px 5px 0 var(--brass);
+}
+.tour-step { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; }
+.tour-title { font-family: var(--display); font-size: 22px; font-weight: 600; line-height: 1.15; margin-bottom: 6px; }
+.tour-body { margin: 0; font-size: 15px; line-height: 1.45; color: var(--ink-soft); }
+.tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.tour-spacer { flex: 1; }
+.tour-skip, .tour-back { border: 0; background: none; font: inherit; font-size: 14px; color: var(--ink-faint); cursor: pointer; padding: 6px 6px; }
+.tour-skip:hover, .tour-back:hover { color: var(--ink); }
+.tour-next { font: inherit; font-size: 15px; padding: 6px 16px; cursor: pointer; background: var(--accent); color: var(--on-dark); border: 0; border-radius: var(--radius); }
+.tour-next:hover { filter: brightness(1.15); }
+.tour-next:focus-visible, .tour-skip:focus-visible, .tour-back:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .walkthrough-btn { animation: none; } .tour-spot { transition: none; } }
+.tour-link { display: inline-block; margin-top: 8px; font-size: 14px; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
