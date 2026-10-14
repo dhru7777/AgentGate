@@ -533,9 +533,20 @@ async function siteJson(path: string, init: RequestInit = {}) {
   const res = await fetch(SITE + path + (path.includes("?") ? "&" : "?") + "auth=" + encodeURIComponent(ADMIN_KEY), { ...init, headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json", ...(init.headers || {}) } });
   return res.json();
 }
-async function siteRead(path: string) {
-  const res = await fetch(SITE + path + (path.includes("?") ? "&" : "?") + "auth=" + encodeURIComponent(ANALYTICS_KEY));
-  return res.json();
+const readCache = new Map<string, { at: number; data: any }>();
+// Cached so a busy page never hammers the blog: one analytics request per minute, however many tabs are open.
+async function siteRead(path: string, ttlMs = 60_000) {
+  const hit = readCache.get(path);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
+  try {
+    const res = await fetch(SITE + path + (path.includes("?") ? "&" : "?") + "auth=" + encodeURIComponent(ANALYTICS_KEY));
+    const data = await res.json();
+    readCache.set(path, { at: Date.now(), data });
+    return data;
+  } catch (err) {
+    if (hit) return hit.data;
+    throw err;
+  }
 }
 const modeOf = (r: { allowed: boolean; charge?: boolean }) => (r.allowed ? "free" : r.charge ? "charge" : "block");
 
@@ -703,10 +714,10 @@ export default async (req: Request) => {
   }
 
   if (pathname === "/api/policy" && req.method === "GET") {
-    if (!ADMIN_KEY) return json({ mode: null });
-    const data = await siteJson("/api/bot-rules");
+    if (!ANALYTICS_KEY) return json({ mode: "charge" });
+    const data = await siteRead("/api/bot-rules");
     const rule = (data.rules || []).find((r) => r.id === RULE_ID);
-    return json({ mode: rule ? modeOf(rule) : null });
+    return json({ mode: rule ? modeOf(rule) : "charge" });
   }
 
   if (pathname === "/api/policy" && req.method === "POST") {
@@ -716,6 +727,7 @@ export default async (req: Request) => {
     const mode = body.mode;
     if (!["free", "charge", "block"].includes(mode)) return json({ error: "bad mode" }, 400);
     const data = await siteJson("/api/bot-rules", { method: "POST", body: JSON.stringify({ id: RULE_ID, allowed: mode === "free", charge: mode === "charge" }) });
+    readCache.delete("/api/bot-rules");
     const rule = (data.rules || []).find((r) => r.id === RULE_ID);
     const applied = await waitUntilLive(mode);
     return json({ mode: rule ? modeOf(rule) : null, applied });
