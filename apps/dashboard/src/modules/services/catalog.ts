@@ -15,6 +15,8 @@ function hiddenIds(): Set<string> {
 }
 
 export function hideService(id: string) {
+  // The blog is the demo site every judge opens first, so it cannot be hidden.
+  if (id === "blog") return;
   const hidden = hiddenIds();
   hidden.add(id);
   localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden]));
@@ -34,7 +36,7 @@ function readExtra(): Service[] {
 export function loadServices(): Service[] {
   const builtinIds = new Set(SERVICES.map((service) => service.id));
   const hidden = hiddenIds();
-  return [...SERVICES, ...readExtra().filter((service) => !builtinIds.has(service.id))].filter((service) => !hidden.has(service.id));
+  return [...SERVICES, ...readExtra().filter((service) => !builtinIds.has(service.id))].filter((service) => service.id === "blog" || !hidden.has(service.id));
 }
 
 export function saveUserServices(services: Service[]) {

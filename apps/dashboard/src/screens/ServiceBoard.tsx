@@ -65,9 +65,11 @@ export function ServiceBoard({
                 )}
               </div>
             </div>
-            <button type="button" className="service-delete" aria-label={`Delete ${service.name}`} title="Remove service" onClick={() => onRemove(service.id)}>
-              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3 3 9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
-            </button>
+            {service.id !== "blog" && (
+              <button type="button" className="service-delete" aria-label={`Delete ${service.name}`} title="Remove service" onClick={() => onRemove(service.id)}>
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3 3 9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
+              </button>
+            )}
           </article>
         ))}
       </div>
