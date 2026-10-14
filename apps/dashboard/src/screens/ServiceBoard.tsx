@@ -3,7 +3,7 @@ import { ServicePreview } from "../components/ServicePreview";
 import type { Service } from "../types";
 
 /** The bot demo that crawls the live blog. Same product, one umbrella. */
-export const LIVE_BOT_PREVIEW_URL = "https://agent-preview-colosseum.netlify.app/";
+export const LIVE_BOT_PREVIEW_URL = "https://agentgate-demopreview.netlify.app/";
 
 export function ServiceBoard({
   services,
