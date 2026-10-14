@@ -77,7 +77,8 @@ button, input, select { font-family: inherit; }
 
 .ledger-header button.is-active { color: var(--accent); font-weight: 500; }
 
-.ledger-header h1 .ledger-home { font-size: inherit; font-weight: inherit; color: var(--ink); }
+.ledger-header h1 .ledger-home { display: inline-flex; align-items: center; gap: 10px; font-size: inherit; font-weight: inherit; color: var(--ink); }
+.ledger-header h1 .ledger-home img { width: 28px; height: 28px; border-radius: 4px; }
 .ledger-header h1 .ledger-home:hover { color: var(--accent); }
 
 .ledger-header nav a {
