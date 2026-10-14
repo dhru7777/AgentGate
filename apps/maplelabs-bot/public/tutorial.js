@@ -7,6 +7,7 @@
   let token = 0;
   let resolveNext = null;
   let currentTarget = null;
+  let currentSide = null;
 
   const btn = document.createElement("button");
   btn.type = "button";
@@ -36,8 +37,9 @@
   const spot = root.querySelector("#tourSpot");
   const tip = root.querySelector("#tourTip");
 
-  function place(target) {
+  function place(target, side) {
     currentTarget = target || null;
+    if (side !== undefined) currentSide = side;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const tipW = Math.min(340, vw - 24);
@@ -51,6 +53,17 @@
     const r = target.getBoundingClientRect();
     const pad = 6;
     spot.style.opacity = "1";
+    const tipH0 = tip.offsetHeight || 190;
+    if (currentSide === "left") {
+      // The highlight is on the right, so keep the card on the left side of the window, clear of it and of the Netlify badge.
+      spot.style.top = `${Math.max(4, r.top - pad)}px`;
+      spot.style.left = `${Math.max(4, r.left - pad)}px`;
+      spot.style.width = `${Math.min(vw - 8, r.width + pad * 2)}px`;
+      spot.style.height = `${Math.min(vh - 8, r.height + pad * 2)}px`;
+      tip.style.left = "16px";
+      tip.style.top = `${Math.max(12, Math.min(90, vh - tipH0 - 12))}px`;
+      return;
+    }
     spot.style.top = `${Math.max(4, r.top - pad)}px`;
     spot.style.left = `${Math.max(4, r.left - pad)}px`;
     spot.style.width = `${Math.min(vw - 8, r.width + pad * 2)}px`;
@@ -83,7 +96,7 @@
     return null;
   }
 
-  async function step({ n, total, title, body, target, next = "Next", action, onShow, live }) {
+  async function step({ n, total, title, body, target, next = "Next", action, onShow, live, side = null }) {
     if (!active) return;
     root.querySelector("#tourStep").textContent = `${n} / ${total}`;
     root.querySelector("#tourTitle").textContent = title;
@@ -92,13 +105,13 @@
     if (target && target.scrollIntoView) target.scrollIntoView({ block: "nearest", behavior: "smooth" });
     await sleep(target ? 250 : 0);
     if (typeof onShow === "function") await onShow();
-    place(target);
+    place(target, side);
     // A live step rewrites its text while the bot works, so the person sees the crawl as it happens.
     let ticker = null;
     if (typeof live === "function") {
       const bodyEl = root.querySelector("#tourBody");
       bodyEl.classList.add("tour-live");
-      const paint = () => { bodyEl.textContent = live(); place(currentTarget); };
+      const paint = () => { bodyEl.textContent = live(); place(currentTarget, side); };
       paint();
       ticker = setInterval(paint, 500);
     }
@@ -180,6 +193,7 @@
         title: "Watch it crawl",
         body: "",
         target: $("#log")?.closest(".card") || $(".pane.site-top"),
+        side: "left",
         // Behind the globe is the Details view: every request the gate saw, and whether the bot obeyed robots.txt.
         onShow: async () => { $("#gateDetails")?.click(); await sleep(400); },
         live: () => "The gate's live log, newest first: the answer, the path, and whether the bot obeyed robots.txt.\n\n" + crawlLines(),
@@ -195,6 +209,7 @@
           ? "The post answered 402 with a price. It stays closed until it is paid. People are never charged, only agents."
           : "The bot has not reached a post yet. Give it a moment.",
         target: gate || $(".pane.site-bottom"),
+        side: "left",
       });
       if (!alive()) return;
 
@@ -215,6 +230,7 @@
         title: "The owner sets the rule",
         body: "Free, Charge or Block, per agent. Every request and payment also shows in the owner dashboard.",
         target: $("#policy"),
+        side: "left",
         onShow: async () => { $("#gateBack")?.click(); await sleep(400); },
       });
       if (!alive()) return;
