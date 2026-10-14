@@ -222,7 +222,7 @@ export function App() {
   return (
     <>
       <header className="ledger-header">
-        <h1><button type="button" className="ledger-home" onClick={() => go({ tab: "services" })}>Agent Gate</button></h1>
+        <h1><button type="button" className="ledger-home" onClick={() => go({ tab: "services" })}><img src="/logo-mark.svg" alt="" />Agent Gate</button></h1>
         <nav aria-label="Sections">
           {TABS.map((item) => (
             <button
