@@ -79,6 +79,8 @@ const STEPS: Step[] = [
   {
     title: "That is the loop",
     body: "An agent asks, the gate answers 402 with a price, the agent pays USDC on Monad, and the page opens. The owner sees all of it here.",
+    // The tour ends on the Observability graphs, so Finish leaves the judge on the deck.
+    route: { tab: "observability", view: "graphs", agentView: "all" },
     next: "Finish",
   },
 ];
