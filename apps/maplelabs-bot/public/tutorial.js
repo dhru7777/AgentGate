@@ -126,13 +126,25 @@
     if (resolveNext) resolveNext();
   }
 
+  // The judges' walkthrough passes ?return=<dashboard origin>. Only the dashboard hosts are accepted.
+  function returnUrl() {
+    try {
+      const raw = new URLSearchParams(location.search).get("return");
+      if (!raw) return null;
+      const u = new URL(raw);
+      const ok = u.hostname === "agentgate.santboblabs.com" || u.hostname === "localhost" || u.hostname === "127.0.0.1";
+      return ok ? u.origin : null;
+    } catch { return null; }
+  }
+
   async function run() {
     if (active) return;
     active = true;
     const mine = ++token;
     btn.disabled = true;
     root.hidden = false;
-    const total = 7;
+    const back = returnUrl();
+    const total = back ? 8 : 7;
     const alive = () => active && mine === token;
     try {
       await step({
@@ -199,12 +211,22 @@
       if (!alive()) return;
 
       await step({
-        n: 7, total, next: "Finish",
+        n: 7, total, next: back ? "Next" : "Finish",
         title: "The owner sets the rule",
         body: "Free, Charge or Block, per agent. Every request and payment also shows in the owner dashboard.",
         target: $("#policy"),
         onShow: async () => { $("#gateBack")?.click(); await sleep(400); },
       });
+      if (!alive()) return;
+
+      if (back) {
+        await step({
+          n: 8, total, next: "Back to the dashboard",
+          title: "One more stop",
+          body: "Next is agent identity, back on the dashboard.",
+          action: () => { window.location.href = `${back}/identity?walk=8`; },
+        });
+      }
     } finally {
       if (mine === token) end();
     }

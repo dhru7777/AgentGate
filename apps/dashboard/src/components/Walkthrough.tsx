@@ -62,11 +62,12 @@ const STEPS: Step[] = [
   },
   {
     title: "Crawl Sandbox",
-    body: "See an agent run into the gate. This opens the sandbox in a new tab with its own short tour, then come back here for the last steps.",
+    body: "See an agent run into the gate. The sandbox opens here with its own short tour, then brings you back for the last steps.",
     route: { tab: "services" },
     target: [".service-card-actions a[href*='bot']", ".service-card-actions"],
     next: "Open sandbox",
-    onNext: () => window.open(`${BOT_URL.replace(/\/$/, "")}/search?tour=judges`, "_blank", "noopener"),
+    // Same tab: the sandbox tour ends by sending the person back to the Identity step.
+    onNext: () => { window.location.href = `${BOT_URL.replace(/\/$/, "")}/search?tour=judges&return=${encodeURIComponent(window.location.origin)}`; },
   },
   {
     title: "Agent identity",

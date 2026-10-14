@@ -73,7 +73,11 @@ export function App() {
   const [rulesByService, setRulesByService] = useState<Record<string, Rule[]>>(() => initialRules(loadServices()));
   const [owner, setOwner] = useState<OwnerSession | null>(null);
   // Guided tour for judges: null when closed, otherwise the step number.
-  const [walk, setWalk] = useState<number | null>(null);
+  // Coming back from the Crawl Sandbox tour lands on /identity?walk=8 and picks up at the Identity step.
+  const [walk, setWalk] = useState<number | null>(() => {
+    const n = Number(new URLSearchParams(window.location.search).get("walk"));
+    return Number.isInteger(n) && n > 0 && n < 20 ? n : null;
+  });
 
   useEffect(() => {
     localStorage.setItem("agentledger.rules", JSON.stringify(rulesByService));
