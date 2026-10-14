@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AgentGate Preview</title>
+<title>Crawl Sandbox</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='3' fill='%232f4a3a'/%3E%3Cpath d='M8 21V11l8 7 8-7v10' stroke='white' stroke-width='3' fill='none'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,19 +13,8 @@
 <body>
 <header class="top">
   <div class="brand">
-    <div class="pop-wrap" id="buyerWrap" hidden>
-      <button class="wallet-btn" id="buyerBtn" type="button" title="Buyer wallet">$</button>
-      <div class="popover" id="buyerPop">
-        <div class="pop-title">Buyer wallet · sender</div>
-        <div class="kv"><span>Address</span><strong id="buyerAddr">not configured</strong></div>
-        <div class="kv"><span>USDC</span><strong id="buyerUsdc">–</strong></div>
-        <div class="kv"><span>MON (gas)</span><strong id="buyerMon">–</strong></div>
-        <div class="tx-h">Last 3</div>
-        <div class="tx-list" id="buyerTx"></div>
-        <a class="pop-link" id="buyerExplorer" href="#" target="_blank" rel="noreferrer" hidden>View on MonadVision</a>
-      </div>
-    </div>
-    <span class="logo">M</span><strong>AgentGate Preview</strong><span class="muted" id="brainTag">…</span>
+    <a class="back-link" href="https://agentgate.santboblabs.com/services" title="Back to the dashboard">&larr; Services</a>
+    <strong>Crawl Sandbox</strong><span class="muted" id="brainTag">…</span>
     <button class="dots" id="dotsBtn" type="button" aria-label="Boards">⋮</button>
     <div class="dots-menu" id="dotsMenu" hidden>
       <div class="dots-title">Boards under MapleLabsBot</div>
@@ -34,26 +23,41 @@
     </div>
   </div>
   <div class="site">
-    <div class="pop-wrap" id="sellerWrap" hidden>
-      <button class="wallet-btn" id="sellerBtn" type="button" title="Seller wallet, receive-only">$</button>
-      <div class="popover" id="sellerPop">
-        <div class="pop-title">Seller wallet · receive-only</div>
-        <div class="kv"><span>Address</span><strong id="sellerAddr">…</strong></div>
-        <div class="kv"><span>USDC</span><strong id="sellerUsdc">–</strong></div>
-        <div class="kv"><span>MON (gas)</span><strong id="sellerMon">–</strong></div>
-        <div class="tx-h">Last 3</div>
-        <div class="tx-list" id="sellerTx"></div>
-        <a class="pop-link" id="sellerExplorer" href="#" target="_blank" rel="noreferrer" hidden>View on MonadVision</a>
+    <div class="wallets" id="wallets" hidden>
+      <div class="pop-wrap" id="buyerWrap">
+        <button class="wallet-btn" id="buyerBtn" type="button" title="Buyer wallet, pays per request"><span class="w-role">Buyer</span><span class="w-bal" id="buyerBal">–</span></button>
+        <div class="popover" id="buyerPop">
+          <div class="pop-title">Buyer wallet · sender</div>
+          <div class="kv"><span>Address</span><strong id="buyerAddr">not configured</strong></div>
+          <div class="kv"><span>USDC</span><strong id="buyerUsdc">–</strong></div>
+          <div class="kv"><span>MON (gas)</span><strong id="buyerMon">–</strong></div>
+          <div class="tx-h">Last 3</div>
+          <div class="tx-list" id="buyerTx"></div>
+          <a class="pop-link" id="buyerExplorer" href="#" target="_blank" rel="noreferrer" hidden>View on MonadVision</a>
+        </div>
       </div>
-    </div>
-    <span class="dot" id="siteDot"></span><span id="site">…</span>
+      <span class="w-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"/></svg></span>
+      <div class="pop-wrap" id="sellerWrap">
+        <button class="wallet-btn" id="sellerBtn" type="button" title="Seller wallet, receive-only"><span class="w-role">Seller</span><span class="w-bal" id="sellerBal">–</span></button>
+        <div class="popover" id="sellerPop">
+          <div class="pop-title">Seller wallet · receive-only</div>
+          <div class="kv"><span>Address</span><strong id="sellerAddr">…</strong></div>
+          <div class="kv"><span>USDC</span><strong id="sellerUsdc">–</strong></div>
+          <div class="kv"><span>MON (gas)</span><strong id="sellerMon">–</strong></div>
+          <div class="tx-h">Last 3</div>
+          <div class="tx-list" id="sellerTx"></div>
+          <a class="pop-link" id="sellerExplorer" href="#" target="_blank" rel="noreferrer" hidden>View on MonadVision</a>
+        </div>
+      </div>
+      </div>
+    <span class="dot" id="siteDot"></span><a id="site" href="#" target="_blank" rel="noreferrer">…</a>
   </div>
 </header>
 <main class="grid">
   <section class="pane chat">
     <div class="pane-title">
       <span>The bot <span class="muted">what it decides and does</span></span>
-      <button class="max-btn" data-pane="chat" type="button" aria-label="Maximize this pane">full</button>
+      <button class="max-btn" data-pane="chat" type="button" aria-label="Maximize this pane" title="Maximize"><svg class="ico-max" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-4.5 4.5M2.5 13.5L7 9"/></svg><svg class="ico-min" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5H9.5V3M3 9.5h3.5V13M9.5 6.5L14 2M6.5 9.5L2 14"/></svg></button>
     </div>
     <div class="journey">
       <div class="modes" id="modes" role="tablist"></div>
@@ -67,7 +71,7 @@
         <div class="brain-row"><span class="brain-label">Answered by</span><div class="brains" id="brains"></div></div>
         <div class="row">
           <input id="q" autocomplete="off" placeholder="Ask it something about the blog..." required>
-          <button id="send" type="submit">Send</button>
+          <button id="send" type="submit" aria-label="Send" title="Send"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></button>
         </div>
         <div class="suggest" id="suggest"></div>
       </form>
@@ -89,12 +93,14 @@
     <div class="pane site-top">
       <div class="pane-title">
         <span>The gate <span class="muted">what the site sees, live</span></span>
-        <button class="max-btn" data-pane="gate" type="button" aria-label="Maximize this pane">full</button>
+        <button class="max-btn" data-pane="gate" type="button" aria-label="Maximize this pane" title="Maximize"><svg class="ico-max" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-4.5 4.5M2.5 13.5L7 9"/></svg><svg class="ico-min" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5H9.5V3M3 9.5h3.5V13M9.5 6.5L14 2M6.5 9.5L2 14"/></svg></button>
       </div>
-      <div class="scroller">
+      <div class="scroller" id="gateScroller" data-gate="map">
+        <div class="gate-view gate-map">
         <div class="card globecard">
           <div class="card-h">Traffic <span class="muted">real requests, placed where the blog saw them from &middot; drag to spin &middot; only the newest glows</span>
-            <button class="flip-btn" type="button" id="globeFlip" aria-label="Flip to 2D map">2D</button>
+            <button class="flip-btn" type="button" id="globeFlip" aria-label="Flip to 2D map">2D map</button>
+            <button class="flip-btn" type="button" id="gateDetails" aria-label="Show request details">Details</button>
           </div>
           <div class="globe-flip" id="globeFlip3d2d" data-side="3d">
             <div class="globe-flip-inner">
@@ -107,13 +113,19 @@
             </div>
           </div>
         </div>
-        <div class="card grow">
+        <div class="card">
           <div class="card-h">Policy for MapleLabsBot</div>
           <div class="seg" id="policy">
             <button data-mode="free">Free</button><button data-mode="charge">Charge</button><button data-mode="block">Block</button>
           </div>
           <div class="hint" id="policyHint"></div>
-          <div class="card-h" style="margin-top:14px">This request</div>
+        </div>
+        </div>
+        <div class="gate-view gate-info">
+        <div class="card grow">
+          <div class="card-h">This request
+            <button class="flip-btn" type="button" id="gateBack" aria-label="Back to the map">Back to map</button>
+          </div>
           <div class="flow" id="flow">
             <div class="node" data-k="robots" title="Is MapleLabsBot allowed here at all? A bot that obeys stops right here if not.">robots.txt</div>
             <div class="node" data-k="llms" title="What are the terms? Price, network, and how to pay, in plain text for agents.">llms.txt</div>
@@ -124,19 +136,20 @@
           <div class="card-h" style="margin-top:14px">What the gate logged <span class="muted" id="logState"></span></div>
           <div class="table-wrap"><table id="log"><thead><tr><th>Time</th><th>Model</th><th>Purpose</th><th>Path</th><th>Status</th><th>robots.txt</th></tr></thead><tbody></tbody></table></div>
         </div>
+        </div>
       </div>
     </div>
     <div class="beam" id="beam"><span id="beamLabel"></span></div>
     <div class="pane site-bottom">
       <div class="pane-title">
-        <span>Your blog, live <span class="muted" id="iframePath">dheeraj-work.netlify.app</span></span>
-        <button class="max-btn" data-pane="site" type="button" aria-label="Maximize this pane">full</button>
+        <span>Your blog, live <a class="muted" id="iframePath" href="#" target="_blank" rel="noreferrer">dheeraj-work.netlify.app</a></span>
+        <button class="max-btn" data-pane="site" type="button" aria-label="Maximize this pane" title="Maximize"><svg class="ico-max" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-4.5 4.5M2.5 13.5L7 9"/></svg><svg class="ico-min" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5H9.5V3M3 9.5h3.5V13M9.5 6.5L14 2M6.5 9.5L2 14"/></svg></button>
       </div>
       <iframe id="siteFrame" src="about:blank" title="Live blog"></iframe>
     </div>
   </section>
 </main>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/vendor/three.min.js"></script>
 <script src="/globe.js"></script>
 <script src="/app.js"></script>
 </body>

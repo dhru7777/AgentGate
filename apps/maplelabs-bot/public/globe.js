@@ -26,9 +26,9 @@
     const frame = ctx.getImageData(0, 0, w, h);
     const px = frame.data;
     for (let i = 0; i < px.length; i += 4) {
-      px[i] = Math.min(255, Math.pow(px[i] / 255, 0.42) * 255);
-      px[i + 1] = Math.min(255, Math.pow(px[i + 1] / 255, 0.42) * 255);
-      px[i + 2] = Math.min(255, Math.pow(px[i + 2] / 255, 0.42) * 255);
+      px[i] = Math.min(255, Math.pow(px[i] / 255, 0.72) * 255);
+      px[i + 1] = Math.min(255, Math.pow(px[i + 1] / 255, 0.72) * 255);
+      px[i + 2] = Math.min(255, Math.pow(px[i + 2] / 255, 0.72) * 255);
     }
     ctx.putImageData(frame, 0, 0);
     return c;
@@ -109,17 +109,36 @@
 
   // ---------- 3D globe ----------
   let three = null;
+  let failed3d = false;
+  // If three.js did not load or WebGL is blocked, show the 2D map instead of an empty box.
+  function fallBackTo2d(reason) {
+    if (failed3d) return;
+    failed3d = true;
+    const flip = document.getElementById("globeFlip3d2d");
+    if (flip) flip.dataset.side = "2d";
+    const btn = document.getElementById("globeFlip");
+    if (btn) { btn.disabled = true; btn.title = "3D is unavailable here: " + reason; }
+    console.warn("3D globe unavailable:", reason);
+  }
   function initGlobe3d() {
-    if (!window.THREE || three) return three;
+    if (three || failed3d) return three;
+    if (!window.THREE) { fallBackTo2d("three.js did not load"); return null; }
     const T = THREE;
-    const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+    let renderer;
+    try {
+      renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (err) {
+      fallBackTo2d("WebGL is off or blocked in this browser");
+      return null;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     stage3d.appendChild(renderer.domElement);
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(35, 1, 0.1, 40);
-    camera.position.set(0, 0.3, 3.3);
-    scene.add(new T.AmbientLight(0xffffff, 1.55));
-    const sun = new T.DirectionalLight(0xffffff, 0.85);
+    camera.position.set(0, 0.2, 3.45);
+    camera.lookAt(0, 0, 0);
+    scene.add(new T.AmbientLight(0xffffff, 0.8));
+    const sun = new T.DirectionalLight(0xffffff, 1.1);
     sun.position.set(2.2, 0.8, 5);
     scene.add(sun);
     const fill = new T.DirectionalLight(0xf4f7fb, 0.7);
@@ -131,7 +150,7 @@
     scene.add(earth);
     const loader = new T.TextureLoader();
     const bump = loader.load("/globe/earth-bump.jpg");
-    const earthMat = new T.MeshStandardMaterial({ color: 0xffffff, emissive: new T.Color(0xffffff), emissiveIntensity: 0.95, bumpMap: bump, bumpScale: 0.02, roughness: 0.55, metalness: 0 });
+    const earthMat = new T.MeshStandardMaterial({ color: 0xffffff, emissive: new T.Color(0xffffff), emissiveIntensity: 0.4, bumpMap: bump, bumpScale: 0.02, roughness: 0.55, metalness: 0 });
     earth.add(new T.Mesh(new T.SphereGeometry(1, 64, 64), earthMat));
     loader.load("/globe/earth.jpg", (tex) => {
       const lifted = new T.CanvasTexture(liftEarth(tex.image));
@@ -161,7 +180,7 @@
       return new T.CanvasTexture(c);
     })();
 
-    const colorHex = (status) => (status === 402 ? 0xff2a2a : 0x1f9d4a);
+    const colorHex = (status) => (status === 402 ? 0xff2a2a : 0x34c26a);
     let latestGlow = null; // persistent breathing glow sprite on the current latest dot
     const rings = [];
 
@@ -184,7 +203,7 @@
           const scale = d.place ? 0.014 + (Math.sqrt(d.count) / Math.sqrt(d.max || 1)) * 0.022 : 0.028;
           const mesh = new T.Mesh(
             new T.SphereGeometry(d.place ? 1 : 0.028, 14, 14),
-            new T.MeshBasicMaterial({ color: d.place ? 0x26221c : colorHex(d.status) }),
+            new T.MeshBasicMaterial({ color: colorHex(d.status) }),
           );
           if (d.place) mesh.scale.setScalar(scale);
           mesh.position.copy(pos);
@@ -298,7 +317,7 @@
     const is3d = view === "3d";
     if (flipCard) flipCard.dataset.side = view;
     if (flipBtn) {
-      flipBtn.textContent = (is3d ? "2D" : "3D") + " ↽";
+      flipBtn.textContent = is3d ? "2D map" : "3D globe";
       flipBtn.setAttribute("aria-label", is3d ? "Flip to 2D map" : "Flip to 3D globe");
     }
     if (is3d) initGlobe3d();
@@ -309,4 +328,15 @@
     });
   }
   setView("3d");
+})();
+
+// ---------- flip the gate pane between the map and the request details ----------
+(function () {
+  const scroller = document.getElementById("gateScroller");
+  if (!scroller) return;
+  const setGate = (side) => { scroller.dataset.gate = side; scroller.scrollTop = 0; };
+  const details = document.getElementById("gateDetails");
+  const back = document.getElementById("gateBack");
+  if (details) details.addEventListener("click", () => setGate("info"));
+  if (back) back.addEventListener("click", () => setGate("map"));
 })();

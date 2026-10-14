@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import type { Summary } from "../types";
+import type { Summary, Visit } from "../types";
 
 type Place = Summary["places"][number];
+
+const TOP_PLACES = 5;
 
 function placeVector(lat: number, lon: number, radius: number) {
   const phi = THREE.MathUtils.degToRad(90 - lat);
@@ -14,17 +16,43 @@ function placeVector(lat: number, lon: number, radius: number) {
   );
 }
 
-function placeLabel(place: Place) {
+type Tip = { x: number; y: number; title: string; lines: string[] };
+
+/** Hover card for one dot: the total for the place, then who made the recent requests from it. */
+function placeInfo(place: Place, visits: Visit[]): { title: string; lines: string[] } {
   const where = place.city ? `${place.city}, ${place.country}` : place.country;
-  return `${where} · ${place.count.toLocaleString()}`;
+  const title = `${where} · ${place.count.toLocaleString()} requests`;
+  const here = visits.filter((visit) => visit.country === place.country && visit.city === place.city);
+  if (!here.length) return { title, lines: ["No recent agent requests from here"] };
+  const agents = new Map<string, number>();
+  let humans = 0;
+  let paid = 0;
+  let gated = 0;
+  let blocked = 0;
+  for (const visit of here) {
+    if (visit.kind === "human") humans += 1;
+    else agents.set(visit.agent, (agents.get(visit.agent) ?? 0) + 1);
+    if (visit.outcome === "paid") paid += 1;
+    else if (visit.status === 402) gated += 1;
+    else if (visit.outcome === "bad") blocked += 1;
+  }
+  const top = [...agents.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const lines = top.map(([name, count]) => `${name}: ${count}`);
+  if (agents.size > top.length) lines.push(`+${agents.size - top.length} more agents`);
+  if (humans) lines.push(`Humans: ${humans}`);
+  lines.push(`Paid ${paid} · 402 ${gated} · Blocked ${blocked} (of ${here.length} recent)`);
+  return { title, lines };
 }
 
-export function RequestMap({ places, total }: { places: Summary["places"]; total: number }) {
+export function RequestMap({ places, visits, total }: { places: Summary["places"]; visits: Visit[]; total: number }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const placesRef = useRef(places);
   const syncRef = useRef<(() => void) | null>(null);
+  const visitsRef = useRef(visits);
   placesRef.current = places;
-  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
+  visitsRef.current = visits;
+  const [tip, setTip] = useState<Tip | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const located = places.reduce((sum, place) => sum + place.count, 0);
   const byCountry = new Map<string, { country: string; count: number; cities: Set<string> }>();
   for (const place of places) {
@@ -34,13 +62,20 @@ export function RequestMap({ places, total }: { places: Summary["places"]; total
     byCountry.set(place.country, current);
   }
   const rows = [...byCountry.values()].sort((a, b) => b.count - a.count);
+  const visibleRows = showAll ? rows : rows.slice(0, TOP_PLACES);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     const stage = host;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch {
+      // No WebGL (hardware acceleration off, blocked GPU): leave the 3D area empty instead of crashing the app.
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -149,7 +184,7 @@ export function RequestMap({ places, total }: { places: Summary["places"]; total
         );
         dot.scale.setScalar(scale);
         dot.position.copy(placeVector(place.lat, place.lon, 1.015));
-        dot.userData.label = placeLabel(place);
+        dot.userData.info = placeInfo(place, visitsRef.current);
         markers.add(dot);
       }
     };
@@ -205,12 +240,13 @@ export function RequestMap({ places, total }: { places: Summary["places"]; total
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
       const hit = raycaster.intersectObjects(markers.children, false)[0];
-      const text = typeof hit?.object.userData.label === "string" ? hit.object.userData.label : "";
-      if (text !== hover) {
-        hover = text;
-        setTip(text ? { x: event.clientX - rect.left, y: event.clientY - rect.top, text } : null);
-      } else if (text) {
-        setTip({ x: event.clientX - rect.left, y: event.clientY - rect.top, text });
+      const info = hit?.object.userData.info as { title: string; lines: string[] } | undefined;
+      const key = info ? info.title : "";
+      if (key !== hover) {
+        hover = key;
+        setTip(info ? { x: event.clientX - rect.left, y: event.clientY - rect.top, ...info } : null);
+      } else if (info) {
+        setTip({ x: event.clientX - rect.left, y: event.clientY - rect.top, ...info });
       }
     }
 
@@ -259,7 +295,7 @@ export function RequestMap({ places, total }: { places: Summary["places"]; total
 
   useEffect(() => {
     syncRef.current?.();
-  }, [places]);
+  }, [places, visits]);
 
   return (
     <section className="obs-map">
@@ -272,7 +308,10 @@ export function RequestMap({ places, total }: { places: Summary["places"]; total
       <div className="obs-globe" ref={hostRef}>
         {tip && (
           <div className="obs-globe-tip" style={{ left: tip.x, top: tip.y }}>
-            {tip.text}
+            <strong>{tip.title}</strong>
+            {tip.lines.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
           </div>
         )}
       </div>
@@ -285,7 +324,7 @@ export function RequestMap({ places, total }: { places: Summary["places"]; total
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <tr key={row.country}>
                 <td>
                   {row.country}
@@ -296,6 +335,11 @@ export function RequestMap({ places, total }: { places: Summary["places"]; total
             ))}
           </tbody>
         </table>
+        {rows.length > TOP_PLACES && (
+          <button type="button" className="obs-btn-sm" aria-expanded={showAll} onClick={() => setShowAll((open) => !open)}>
+            {showAll ? "Show top 5 only" : `Show ${rows.length - TOP_PLACES} more places`}
+          </button>
+        )}
       </div>
     </section>
   );

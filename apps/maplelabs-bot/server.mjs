@@ -30,7 +30,9 @@ try {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5180);
 const SITE = (process.env.SITE || "https://dheeraj-work.netlify.app").replace(/\/$/, "");
-const ADMIN_KEY = process.env.ADMIN_KEY || ""; // the blog's analytics password, only needed for the policy switch and the gate log
+const ADMIN_KEY = process.env.ADMIN_KEY || ""; // the blog's analytics password, only needed for the policy switch
+// Read-only use: globe dots and the gate log. Never used to change the policy.
+const ANALYTICS_KEY = process.env.ANALYTICS_KEY || ADMIN_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
 const OPENAI_KEY = process.env.OPENAI_API_KEY || "";
@@ -671,6 +673,21 @@ async function siteJson(path, init = {}) {
   const res = await fetch(SITE + path + (path.includes("?") ? "&" : "?") + "auth=" + encodeURIComponent(ADMIN_KEY), { ...init, headers: { "x-admin-key": ADMIN_KEY, "Content-Type": "application/json", ...(init.headers || {}) } });
   return res.json();
 }
+const readCache = new Map();
+// Cached so a busy page never hammers the blog: one analytics request per minute, however many tabs are open.
+async function siteRead(path, ttlMs = 60_000) {
+  const hit = readCache.get(path);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
+  try {
+    const res = await fetch(SITE + path + (path.includes("?") ? "&" : "?") + "auth=" + encodeURIComponent(ANALYTICS_KEY));
+    const data = await res.json();
+    readCache.set(path, { at: Date.now(), data });
+    return data;
+  } catch (err) {
+    if (hit) return hit.data;
+    throw err;
+  }
+}
 const modeOf = (r) => (r.allowed ? "free" : r.charge ? "charge" : "block");
 
 async function waitUntilLive(mode) {
@@ -709,7 +726,7 @@ async function handleApi(req, res, url) {
       maplelabs: { available: true, model: null },
     };
     return json(200, {
-      site: SITE, modes: MODES, prices: PRICES, canControl: Boolean(ADMIN_KEY), brains,
+      site: SITE, modes: MODES, prices: PRICES, canControl: Boolean(ADMIN_KEY), canRead: Boolean(ANALYTICS_KEY), brains,
       wallets: { buyer: BUYER_ADDRESS || null, seller: SELLER_ADDRESS, chain: "Monad Testnet", explorer: MONAD_EXPLORER },
       canPay: Boolean(process.env.BUYER_WALLET_PRIVATE_KEY),
     });
@@ -765,10 +782,10 @@ async function handleApi(req, res, url) {
     }
   }
   if (url.pathname === "/api/policy" && req.method === "GET") {
-    if (!ADMIN_KEY) return json(200, { mode: null });
-    const data = await siteJson("/api/bot-rules");
+    if (!ANALYTICS_KEY) return json(200, { mode: "charge" });
+    const data = await siteRead("/api/bot-rules");
     const rule = (data.rules || []).find((r) => r.id === RULE_ID);
-    return json(200, { mode: rule ? modeOf(rule) : null });
+    return json(200, { mode: rule ? modeOf(rule) : "charge" });
   }
   if (url.pathname === "/api/policy" && req.method === "POST") {
     if (!ADMIN_KEY) return json(403, { error: "ADMIN_KEY not set" });
@@ -776,13 +793,14 @@ async function handleApi(req, res, url) {
     const mode = body.mode;
     if (!["free", "charge", "block"].includes(mode)) return json(400, { error: "bad mode" });
     const data = await siteJson("/api/bot-rules", { method: "POST", body: JSON.stringify({ id: RULE_ID, allowed: mode === "free", charge: mode === "charge" }) });
+    readCache.delete("/api/bot-rules");
     const rule = (data.rules || []).find((r) => r.id === RULE_ID);
     const applied = await waitUntilLive(mode);
     return json(200, { mode: rule ? modeOf(rule) : null, applied });
   }
   if (url.pathname === "/api/places" && req.method === "GET") {
-    if (!ADMIN_KEY) return json(200, { places: [] });
-    const data = await siteJson("/api/analytics?range=week");
+    if (!ANALYTICS_KEY) return json(200, { places: [] });
+    const data = await siteRead("/api/analytics?range=week");
     const places = (data.places || [])
       .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lon))
       .map((place) => ({
@@ -795,8 +813,8 @@ async function handleApi(req, res, url) {
     return json(200, { places });
   }
   if (url.pathname === "/api/log") {
-    if (!ADMIN_KEY) return json(200, { rows: [] });
-    const data = await siteJson("/api/analytics?range=week");
+    if (!ANALYTICS_KEY) return json(200, { rows: [] });
+    const data = await siteRead("/api/analytics?range=week");
     const rows = (data.recent || [])
       .filter((r) => (/maplelabsbot/i.test(r.ua || "") || r.agent === "MapleLabsBot") && !/verify/i.test(r.ua || ""))
       .slice(0, 40)

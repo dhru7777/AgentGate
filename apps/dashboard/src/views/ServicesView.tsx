@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { BarChart, DoughnutChart, LineChart } from "../components/Charts";
 import { RequestMap } from "../components/RequestMap";
 import { Insights } from "./InsightsView";
@@ -157,7 +157,7 @@ function Graphs({ summary }: { summary: Summary }) {
   return (
     <>
       <Kpis summary={summary} />
-      <RequestMap places={summary.places} total={summary.recent.length} />
+      <RequestMap places={summary.places} visits={summary.recent} total={summary.recent.length} />
       <h2>Traffic</h2>
       <div className="obs-chart">
         <LineChart
@@ -200,32 +200,12 @@ function Graphs({ summary }: { summary: Summary }) {
   );
 }
 
-function Agents({ summary, rules, view, onView }: { summary: Summary; rules: Rule[]; view: AgentView; onView: (view: AgentView) => void }) {
-  const tabs: { id: AgentView; label: string }[] = [
-    { id: "all", label: "All Agents" },
-    { id: "compare", label: "Good vs Bad Agents" },
-    { id: "good", label: `Good Agents (${fmt(summary.goodVisitors)})` },
-    { id: "bad", label: `Bad Agents (${fmt(summary.badVisitors)})` },
-    { id: "paid", label: `Paid Agents (${fmt(summary.paidVisitors)})` },
-  ];
+function Agents({ summary, rules, view }: { summary: Summary; rules: Rule[]; view: AgentView }) {
   return (
     <>
-      <AgentAnomalies summary={summary} rules={rules} />
-      <div className="obs-highlights">
-        <div>
-          <span>Top agent</span>
-          <strong>{summary.topAgent ? `${summary.topAgent.name} · ${fmt(summary.topAgent.count)}` : "—"}</strong>
-        </div>
-      </div>
-      <div className="obs-subtabs">
-        {tabs.map((tab) => (
-          <button key={tab.id} type="button" className={view === tab.id ? "is-active" : ""} onClick={() => onView(tab.id)}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
       {view === "compare" && (
         <>
+          <h2 className="obs-view-title">Good vs bad agents</h2>
           <p className="obs-lead">
             Good agents hit HTTP 402 and stopped. Bad agents were gated but still fetched the page. Paid agents stopped at 402, paid USDC on Monad, and came back with a receipt.
           </p>
@@ -251,24 +231,33 @@ function Agents({ summary, rules, view, onView }: { summary: Summary; rules: Rul
       )}
       {view === "good" && (
         <>
+          <h2 className="obs-view-title">Good agents · {fmt(summary.goodVisitors)}</h2>
           <p className="obs-lead">Good agents hit HTTP 402 Payment Required and stopped.</p>
           <CountTable rows={summary.goodAgents} a="Agent" b="Visitors" />
         </>
       )}
       {view === "bad" && (
         <>
+          <h2 className="obs-view-title">Bad agents · {fmt(summary.badVisitors)}</h2>
           <p className="obs-lead">Bad agents were gated by HTTP 402 but still fetched the page without paying.</p>
           <CountTable rows={summary.badAgents} a="Agent" b="Visitors" />
         </>
       )}
       {view === "paid" && (
         <>
+          <h2 className="obs-view-title">Paid agents · {fmt(summary.paidVisitors)}</h2>
           <p className="obs-lead">Paid agents stopped at HTTP 402, paid USDC on Monad, and returned with a receipt.</p>
           <CountTable rows={summary.paidAgents} a="Agent" b="Visitors" />
         </>
       )}
       {view === "all" && (
         <>
+          <div className="obs-highlights">
+            <div>
+              <span>Top agent</span>
+              <strong>{summary.topAgent ? `${summary.topAgent.name} · ${fmt(summary.topAgent.count)}` : "—"}</strong>
+            </div>
+          </div>
           <p className="obs-lead">Agent traffic for this service. Open Good vs Bad to see who honored the paywall.</p>
           <div className="obs-kpis">
             <div className="obs-kpi"><span>Good agents</span><strong>{fmt(summary.goodVisitors)}</strong></div>
@@ -282,6 +271,7 @@ function Agents({ summary, rules, view, onView }: { summary: Summary; rules: Rul
             />
           </div>
           <CountTable rows={summary.topAgents} a="Agent" b="Requests" />
+          <AgentAnomalies summary={summary} rules={rules} />
         </>
       )}
     </>
@@ -609,33 +599,38 @@ export function ServicesView({
   return (
     <div className={`obs${service.verified && summary ? " analytics-pop" : ""}`}>
       <aside className="obs-nav">
-        <button type="button" className="deck-back" onClick={onBack}>Services</button>
-        <p className="obs-brand">{service.name}</p>
+        <button type="button" className="deck-back" onClick={onBack}>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          All services
+        </button>
+        <p className="obs-service">{service.name}</p>
         {service.verified && live && (
           <>
         <p className="obs-brand obs-brand-gap">Analytics</p>
         <div className="obs-nav-tabs">
           {nav.map((item) => (
-            <button key={item.id} type="button" data-tab={item.id} className={view === item.id ? "is-active" : ""} onClick={() => onView(item.id)}>
-              {item.label}
-            </button>
+            <Fragment key={item.id}>
+              <button type="button" data-tab={item.id} className={view === item.id ? "is-active" : ""} onClick={() => onView(item.id)}>
+                {item.label}
+              </button>
+              {item.id === "agents" && view === "agents" && (
+              <div className="obs-nav-sub">
+                {([
+                  ["all", "All Agents"],
+                  ["compare", "Good vs Bad"],
+                  ["good", "Good (Stopped)"],
+                  ["bad", "Bad (Bypassed)"],
+                  ["paid", "Paid (Returned)"],
+                ] as [AgentView, string][]).map(([id, label]) => (
+                  <button key={id} type="button" className={agentView === id ? "is-active" : ""} onClick={() => onAgentView(id)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              )}
+            </Fragment>
           ))}
         </div>
-        {view === "agents" && (
-          <div className="obs-nav-sub">
-            {([
-              ["all", "All Agents"],
-              ["compare", "Good vs Bad"],
-              ["good", "Good (Stopped)"],
-              ["bad", "Bad (Bypassed)"],
-              ["paid", "Paid (Returned)"],
-            ] as [AgentView, string][]).map(([id, label]) => (
-              <button key={id} type="button" className={agentView === id ? "is-active" : ""} onClick={() => onAgentView(id)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
           </>
         )}
       </aside>
@@ -681,7 +676,7 @@ export function ServicesView({
         </div>
         {view === "graphs" && <Graphs summary={summary} />}
         {view === "insights" && <Insights summary={summary} rules={rules} />}
-        {view === "agents" && <Agents summary={summary} rules={rules} view={agentView} onView={onAgentView} />}
+        {view === "agents" && <Agents summary={summary} rules={rules} view={agentView} />}
         {view === "pages" && <Pages summary={summary} />}
         {view === "events" && <Events summary={summary} />}
         {view === "permissions" && (

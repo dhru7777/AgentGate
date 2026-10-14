@@ -24,12 +24,13 @@ async function init() {
   state.modes = cfg.modes;
   state.brains = cfg.brains;
   state.prices = cfg.prices;
-  state.canControl = cfg.canControl;
+  state.canControl = cfg.canControl; state.canRead = cfg.canRead;
   state.canPay = cfg.canPay;
   state.requiresPolicyKey = cfg.requiresPolicyKey;
 
   $("#site").textContent = cfg.site.replace("https://", "");
   $("#iframePath").textContent = cfg.site.replace("https://", "");
+  $("#site").href = $("#iframePath").href = cfg.site;
   // Fix: show the live blog right away instead of leaving the pane blank until the first message.
   $("#siteFrame").src = cfg.site;
 
@@ -78,7 +79,7 @@ async function init() {
   loadPolicy();
   loadPlaces();
   pollLog();
-  setInterval(pollLog, 2500);
+  setInterval(() => { if (!document.hidden) pollLog(); }, 20000);
   initWallets(cfg.wallets);
 }
 
@@ -88,7 +89,7 @@ async function copyText(text) {
   try { await navigator.clipboard.writeText(text); } catch { /* clipboard may be unavailable, ignore */ }
 }
 
-// Each wallet is a small $ button that opens a popover on click, closes on an outside click
+// Each wallet is a labeled balance chip that opens a popover on click, closes on an outside click
 // or a second click on the same button, same interaction as midnightx402's ui-demo.
 function wirePopover(wrapId, btnId) {
   const wrap = $(`#${wrapId}`), btn = $(`#${btnId}`);
@@ -106,12 +107,12 @@ document.addEventListener("click", (e) => {
 function initWallets(wallets) {
   if (!wallets) return;
   state.wallets = wallets;
-  $("#buyerWrap").hidden = false;
-  $("#sellerWrap").hidden = false;
+  $("#wallets").hidden = false;
   wirePopover("buyerWrap", "buyerBtn");
   wirePopover("sellerWrap", "sellerBtn");
 
   $("#buyerAddr").textContent = short(wallets.buyer);
+  if (!wallets.buyer) { $("#buyerBal").textContent = "not set"; $("#buyerBal").classList.add("unset"); }
   $("#sellerAddr").textContent = short(wallets.seller);
   if (wallets.buyer) {
     $("#buyerAddr").onclick = () => copyText(wallets.buyer);
@@ -123,12 +124,16 @@ function initWallets(wallets) {
   $("#sellerExplorer").hidden = false;
 
   pollWallets();
-  setInterval(pollWallets, 15000);
+  setInterval(() => { if (!document.hidden) pollWallets(); }, 30000);
 }
 
-function paintTx(id, txs) {
+function paintTx(id, txs, busy) {
   const el = $(`#${id}`);
   if (!el) return;
+  if (busy && !(txs && txs.length)) {
+    el.innerHTML = `<div class="tx-empty">Explorer is busy, retrying shortly</div>`;
+    return;
+  }
   if (txs == null) {
     el.innerHTML = `<div class="tx-empty">Looking up transfers…</div>`;
     return;
@@ -147,8 +152,8 @@ function paintTx(id, txs) {
 async function pollWallets() {
   try {
     const { buyer, seller } = await (await fetch("/api/wallets")).json();
-    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; paintTx("buyerTx", buyer.txs); }
-    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; paintTx("sellerTx", seller.txs); }
+    if (buyer) { $("#buyerUsdc").textContent = `${buyer.usdc} USDC`; $("#buyerMon").textContent = `${buyer.mon} MON`; $("#buyerBal").textContent = `${buyer.usdc} USDC`; paintTx("buyerTx", buyer.txs, buyer.txsBusy); }
+    if (seller) { $("#sellerUsdc").textContent = `${seller.usdc} USDC`; $("#sellerMon").textContent = `${seller.mon} MON`; $("#sellerBal").textContent = `${seller.usdc} USDC`; paintTx("sellerTx", seller.txs, seller.txsBusy); }
     if ((buyer && buyer.txs == null) || (seller && seller.txs == null)) setTimeout(pollWallets, 2000);
   } catch { /* balances are a nice-to-have, ignore failures */ }
 }
@@ -230,12 +235,22 @@ window.approvePay = async (id, amount) => {
     const answer = msg && msg.querySelector(".answer");
     if (answer) answer.innerHTML = opened;
     else card.insertAdjacentHTML("afterend", `<div class="answer">${opened}</div>`);
+    if (state.pendingBundle && state.pendingBundle.bundle) {
+      card.insertAdjacentHTML("afterend", bundleHtml(state.pendingBundle));
+      state.pendingBundle = null;
+    }
     pollWallets();
   } catch (err) {
     status.textContent = "Not sent";
     card.insertAdjacentHTML("beforeend", `<div class="approve-note">${esc(err.message || "Payment failed")}</div>`);
   }
 };
+
+function bundleHtml({ tier, hours, bundle }) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
+  const meta = [tier, `${bundle.postCount} posts`, hours && `${hours}h access`].filter(Boolean).join(" · ");
+  return `<div class="bundle">${esc(meta)}<br><a class="dl" href="${url}" download="maplelabs-bundle-${esc(bundle.bundle)}.json">Download bundle.json</a></div>`;
+}
 
 window.declinePay = (id) => {
   const card = document.getElementById(id);
@@ -250,8 +265,10 @@ function toggleMax(pane) {
   if (current === pane) delete document.body.dataset.max;
   else document.body.dataset.max = pane;
   document.querySelectorAll(".max-btn").forEach((b) => {
-    b.textContent = document.body.dataset.max === b.dataset.pane ? "fit" : "full";
-    b.setAttribute("aria-label", document.body.dataset.max === b.dataset.pane ? "Restore" : "Maximize this pane");
+    const on = document.body.dataset.max === b.dataset.pane;
+    b.classList.toggle("is-max", on);
+    b.title = on ? "Restore" : "Maximize";
+    b.setAttribute("aria-label", on ? "Restore" : "Maximize this pane");
   });
 }
 
@@ -283,11 +300,12 @@ function setBrain(id) {
   document.querySelector(".chat").dataset.brain = id;
 }
 
-async function loadPolicy() { paintPolicy((await (await fetch("/api/policy")).json()).mode); }
+async function loadPolicy() { paintPolicy((await (await fetch("/api/policy")).json()).mode || "charge"); }
 function paintPolicy(mode) {
   document.querySelectorAll("#policy button").forEach((b) => { b.classList.toggle("on", b.dataset.mode === mode); b.disabled = !state.canControl; });
+  const MODE_TEXT = { free: "robots.txt allows it. Posts are served.", charge: "robots.txt allows it. Posts answer HTTP 402 until paid.", block: "robots.txt disallows it. A bot that obeys never asks for a post." };
   $("#policyHint").textContent = !state.canControl
-    ? "Start the server with ADMIN_KEY to switch the policy here."
+    ? (MODE_TEXT[mode] || MODE_TEXT.charge) + " Read-only in this preview."
     : mode === "free" ? "robots.txt allows it. Posts are served."
     : mode === "charge" ? "robots.txt allows it. Posts answer HTTP 402 until paid."
     : "robots.txt disallows it. A bot that obeys never asks for a post.";
@@ -331,7 +349,7 @@ function beam(label) {
 function navigateSite(path) {
   const site = $("#site").textContent;
   $("#iframePath").textContent = site + path;
-  $("#siteFrame").src = "https://" + site + path;
+  $("#siteFrame").src = $("#iframePath").href = "https://" + site + path;
 }
 
 function avatarFor(brand) {
@@ -385,6 +403,7 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
     await new Promise((r) => setTimeout(r, 1700));
   };
 
+  state.pendingBundle = null;
   const res = await fetch("/api/run", { method: "POST", body: JSON.stringify({ mode: modeAtSend, brain: brainAtSend, question: q, bundleChoice, respectRobots: $("#respect").checked }) });
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
   for (;;) {
@@ -419,12 +438,10 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
       } else if (ev.type === "payment") {
         shown = put(bot, approvalCardHtml());
       } else if (ev.type === "paid") {
-        shown = put(bot, `<div class="paid">${esc(ev.tier)} · $${ev.charged} · ${ev.hours}h</div>`);
+        // The server only quotes here. Nothing has moved until Approve succeeds.
+        state.pendingBundle = { ...state.pendingBundle, tier: ev.tier, hours: ev.hours };
       } else if (ev.type === "bundle") {
-        const b = ev.bundle;
-        const blob = new Blob([JSON.stringify(b, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        shown = put(bot, `<div class="bundle">${b.postCount} posts<br><a class="dl" href="${url}" download="maplelabs-bundle-${b.bundle}.json">Download bundle.json</a></div>`);
+        state.pendingBundle = { ...state.pendingBundle, bundle: ev.bundle };
       }
       if (shown) await hold(shown, node);
     }
@@ -446,7 +463,7 @@ async function loadPlaces() {
 async function pollLog() {
   try {
     const { rows } = await (await fetch("/api/log")).json();
-    if (!state.canControl) { $("#logState").textContent = "needs ADMIN_KEY"; return; }
+    if (!state.canRead) { $("#logState").textContent = "off in this preview"; return; }
     $("#logState").textContent = rows.length ? `${rows.length} recent` : "nothing yet";
     const body = $("#log tbody"); const first = state.seen.size === 0;
     body.innerHTML = rows.map((r) => {

@@ -279,7 +279,40 @@ function toSummary(raw: LivePayload): Summary {
   };
 }
 
+const CACHE_MS = 60_000;
+
+function cached<T>(path: string): T | null {
+  try {
+    const raw = sessionStorage.getItem(`agentledger.read:${path}`);
+    if (!raw) return null;
+    const hit = JSON.parse(raw) as { at: number; data: T };
+    return Date.now() - hit.at < CACHE_MS ? hit.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function remember(path: string, data: unknown) {
+  try {
+    sessionStorage.setItem(`agentledger.read:${path}`, JSON.stringify({ at: Date.now(), data }));
+  } catch { /* storage is optional */ }
+}
+
+function forget() {
+  try {
+    for (const key of Object.keys(sessionStorage)) if (key.startsWith("agentledger.read:")) sessionStorage.removeItem(key);
+  } catch { /* storage is optional */ }
+}
+
+// Reads are cached for a minute, so opening the landing page again does not ask the blog again.
 async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const isRead = !init || !init.method || init.method === "GET";
+  if (isRead) {
+    const hit = cached<T>(path);
+    if (hit) return hit;
+  } else {
+    forget();
+  }
   const auth = encodeURIComponent(accessKey());
   const join = path.includes("?") ? "&" : "?";
   const response = await fetch(`${ORIGIN}${path}${join}auth=${auth}`, init);
@@ -287,6 +320,7 @@ async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok || data.ok === false) {
     throw new Error(data.error || "Analytics request failed");
   }
+  if (isRead) remember(path, data);
   return data;
 }
 
