@@ -35,7 +35,7 @@ The training bundle is still built from `data/snapshot.json`. Paying does not un
 
 - **Train + Block:** robots.txt disallows the bot, it stops before any post request, nothing is charged.
 - **Train + Charge:** robots.txt allows it, a post 402s, Approve sends the USDC, and the snapshot bundle is offered.
-- **Search:** a 402 ends the lookup until Approve sends the page price.
+- **Search:** a 402 ends the lookup until Approve sends the page price. The blog then verifies the transaction and the post opens in the blog pane with its access token.
 
 ## Other env vars
 

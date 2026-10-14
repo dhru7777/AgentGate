@@ -56,6 +56,14 @@ a:hover { text-decoration: underline; }
 .site-top { overflow: hidden; }
 .site-top .scroller { flex: 1; overflow: auto; padding-bottom: 6px; display: flex; flex-direction: column; }
 .site-bottom { overflow: hidden; }
+.site-gate { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; text-align: center; background: var(--surface); }
+.gate-code { font: 0.75rem var(--mono); letter-spacing: 0.08em; color: var(--warn); }
+.gate-title { font: 600 1.6rem var(--display); color: var(--ink); }
+.gate-path { font: 0.78rem var(--mono); color: var(--ink-faint); overflow-wrap: anywhere; }
+.gate-price { color: var(--ink-soft); }
+.gate-wait { font-size: 0.9rem; color: var(--ink-faint); }
+.site-gate[hidden] { display: none; }
+.site-gate.paid .gate-code { color: var(--positive); }
 .pane-title { padding: 10px 16px; font-family: var(--display); font-size: 1.15rem; font-weight: 500; border-bottom: 1px solid var(--rule-soft); flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pane-title > span:first-child { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
 .pane-title .muted { font-family: var(--body); font-size: 0.85rem; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--rule); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

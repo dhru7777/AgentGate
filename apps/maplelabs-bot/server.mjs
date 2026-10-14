@@ -854,7 +854,7 @@ http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   try {
     if (url.pathname.startsWith("/api/")) return await handleApi(req, res, url);
-    const file = normalize(join(PUBLIC, url.pathname === "/" ? "index.html" : url.pathname));
+    const file = normalize(join(PUBLIC, ["/", "/search", "/train"].includes(url.pathname) ? "index.html" : url.pathname));
     if (!file.startsWith(PUBLIC)) { res.writeHead(403); return res.end(); }
     const data = await readFile(file);
     res.writeHead(200, { "Content-Type": TYPES[extname(file)] || "application/octet-stream" });

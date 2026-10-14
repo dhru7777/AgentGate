@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { explorerAddressUrl, MONAD_RECEIVE_ADDRESS } from "../modules/chain/monad";
 import { loadCredential, meraMessage } from "../modules/mera/passkey";
+import { readMonadAccount } from "../modules/wallet/etherscan";
 import type { OwnerSession } from "../types";
 import { WalletAccounts } from "../screens/WalletAccounts";
 
@@ -16,6 +18,17 @@ export function WalletView({
   const [notice, setNotice] = useState("");
   const [noticeError, setNoticeError] = useState(false);
   const hasPasskey = loadCredential() !== null;
+  const [publicUsdc, setPublicUsdc] = useState("…");
+
+  // The receiving address and its USDC are public on chain, so they show before the passkey.
+  useEffect(() => {
+    if (owner) return;
+    let cancel = false;
+    readMonadAccount(MONAD_RECEIVE_ADDRESS)
+      .then((account) => { if (!cancel) setPublicUsdc(`${account.usdc} USDC`); })
+      .catch(() => { if (!cancel) setPublicUsdc("unavailable"); });
+    return () => { cancel = true; };
+  }, [owner]);
 
   async function unlock() {
     setBusy(true);
@@ -36,9 +49,20 @@ export function WalletView({
       <header className="obs-top">
         <div>
           <h1>Wallet</h1>
-          <p className="obs-meta">A Mera passkey opens this wallet. Balances stay hidden until it succeeds.</p>
+          <p className="obs-meta">Agents pay the receiving address below. A Mera passkey opens the full wallet.</p>
         </div>
       </header>
+
+      {!owner && (
+        <section className="ledger-card">
+          <h2>Receiving address</h2>
+          <p className="obs-lead">Every paid 402 settles here in USDC on Monad testnet.</p>
+          <div className="obs-kpis">
+            <div className="obs-kpi"><span>Address</span><strong className="mono"><a href={explorerAddressUrl(MONAD_RECEIVE_ADDRESS)} target="_blank" rel="noreferrer">{MONAD_RECEIVE_ADDRESS}</a></strong></div>
+            <div className="obs-kpi"><span>USDC balance</span><strong>{publicUsdc}</strong></div>
+          </div>
+        </section>
+      )}
 
       {!owner && (
         <section className="ledger-card">
