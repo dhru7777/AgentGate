@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crawl Sandbox</title>
+<meta name="description" content="Watch an AI crawler hit a paywalled blog, get HTTP 402, and pay USDC on Monad to read it.">
+<meta property="og:title" content="Crawl Sandbox · Agent Gate">
+<meta property="og:description" content="Watch an AI crawler hit a paywalled blog, get HTTP 402, and pay USDC on Monad to read it.">
+<meta property="og:url" content="https://bot.agentgate.santboblabs.com">
+<meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='3' fill='%232f4a3a'/%3E%3Cpath d='M8 21V11l8 7 8-7v10' stroke='white' stroke-width='3' fill='none'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -146,6 +151,13 @@
         <button class="max-btn" data-pane="site" type="button" aria-label="Maximize this pane" title="Maximize"><svg class="ico-max" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-4.5 4.5M2.5 13.5L7 9"/></svg><svg class="ico-min" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5H9.5V3M3 9.5h3.5V13M9.5 6.5L14 2M6.5 9.5L2 14"/></svg></button>
       </div>
       <iframe id="siteFrame" src="about:blank" title="Live blog"></iframe>
+      <div class="site-gate" id="siteGate" hidden>
+        <div class="gate-code">HTTP 402</div>
+        <div class="gate-title">Payment required</div>
+        <div class="gate-path" id="gatePath"></div>
+        <div class="gate-price" id="gatePrice">The blog wants USDC on Monad before it serves this post.</div>
+        <div class="gate-wait" id="gateWait">Waiting for approval in the bot pane.</div>
+      </div>
     </div>
   </section>
 </main>

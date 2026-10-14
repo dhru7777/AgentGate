@@ -1,4 +1,5 @@
 const $ = (s) => document.querySelector(s);
+const DASHBOARD = "https://agentgate.santboblabs.com";
 const state = { mode: "search", brain: "maplelabs", bundle: "starter", modes: {}, brains: {}, prices: {}, running: false, seen: new Set(), canControl: false, approveId: 0, settled: new Set(), last402Path: "" };
 const PURPOSE = { training: "Training", search: "Search", user: "User search", unidentified: "Unidentified" };
 
@@ -32,6 +33,7 @@ async function init() {
   $("#iframePath").textContent = cfg.site.replace("https://", "");
   $("#site").href = $("#iframePath").href = cfg.site;
   // Fix: show the live blog right away instead of leaving the pane blank until the first message.
+  state.site = cfg.site;
   $("#siteFrame").src = cfg.site;
 
   $("#modes").innerHTML = Object.entries(cfg.modes)
@@ -231,7 +233,8 @@ window.approvePay = async (id, amount) => {
     });
     status.textContent = `Paid $${esc(data.amount)}.`;
     card.querySelector(".muted").textContent = "";
-    card.insertAdjacentHTML("beforeend", `<div class="approve-note"><a href="${esc(data.explorer)}" target="_blank" rel="noreferrer">MonadVision</a></div>`);
+    card.insertAdjacentHTML("beforeend", `<div class="approve-note"><a href="${esc(data.explorer)}" target="_blank" rel="noreferrer">MonadVision</a> · <a href="${DASHBOARD}/observability/agents/paid?range=day" target="_blank" rel="noreferrer">See it in the dashboard</a></div>`);
+    unlockSite(paidPath, data.txHash);
     const opened = await openPaidPost(paidPath, data.amount);
     const msg = card.closest(".msg");
     const answer = msg && msg.querySelector(".answer");
@@ -260,6 +263,7 @@ window.declinePay = (id) => {
   card.classList.add("resolved");
   const status = card.querySelector(".approve-status");
   if (status) status.textContent = "Declined";
+  $("#gateWait").textContent = "Declined. The post stays locked.";
 };
 
 function toggleMax(pane) {
@@ -350,10 +354,47 @@ function beam(label) {
   const b = $("#beam"); $("#beamLabel").textContent = label;
   b.classList.remove("active"); void b.offsetWidth; b.classList.add("active");
 }
-function navigateSite(path) {
+// A 402 inside the frame only shows the blog's browser check, so the pane shows the
+// gate itself until the payment is verified and the post can load with its token.
+function navigateSite(path, status) {
   const site = $("#site").textContent;
   $("#iframePath").textContent = site + path;
-  $("#siteFrame").src = $("#iframePath").href = "https://" + site + path;
+  $("#iframePath").href = "https://" + site + path;
+  const gated = status === 402 && !state.settled.has(pathKey(path));
+  $("#siteGate").hidden = !gated;
+  $("#siteFrame").hidden = gated;
+  if (gated) {
+    $("#siteGate").classList.remove("paid");
+    $("#gatePath").textContent = path;
+    $("#gateWait").textContent = "Waiting for approval in the bot pane.";
+  } else {
+    $("#siteFrame").src = "https://" + site + path;
+  }
+}
+
+async function unlockSite(path, txHash) {
+  if (!path || !txHash) { $("#siteGate").hidden = true; $("#siteFrame").hidden = false; return; }
+  $("#siteGate").classList.add("paid");
+  $("#gateWait").textContent = "Paid. Waiting for the blog to verify the transaction.";
+  // The transfer can land a moment before the blog's RPC sees it, so retry briefly.
+  for (let i = 0; i < 5; i++) {
+    try {
+      const res = await fetch(state.site + "/api/verify-payment", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ txHash }),
+      });
+      const body = await res.json();
+      if (body.ok && body.accessToken) {
+        $("#siteFrame").src = state.site + path + "?access_token=" + encodeURIComponent(body.accessToken);
+        $("#siteGate").hidden = true;
+        $("#siteFrame").hidden = false;
+        return;
+      }
+    } catch { /* retry below */ }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  $("#gateWait").textContent = "Paid, but the blog has not verified it yet. Open the post from the link above.";
 }
 
 function avatarFor(brand) {
@@ -425,7 +466,7 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
         node = document.querySelector(`.node[data-k="${ev.kind}"]`);
         if (node) node.className = "node " + cls(ev.status, ev.path);
         $("#kReq").textContent = req; $("#kOk").textContent = ok; $("#kBlock").textContent = blocked;
-        beam(ev.path); navigateSite(ev.path);
+        beam(ev.path); navigateSite(ev.path, ev.status);
       } else if (ev.type === "decision") {
         shown = put(steps, `<div class="note ${ev.violation || ev.allowed === false ? "warn" : ""}">${esc(ev.text)}</div>`);
       } else if (ev.type === "aside" || ev.type === "thinking" || ev.type === "answer" || ev.type === "error") {
@@ -440,6 +481,7 @@ async function run(target, { mode: modeAtSend, brain: brainAtSend, question: q, 
           shown = bubble;
         }
       } else if (ev.type === "payment") {
+        if (ev.price) $("#gatePrice").textContent = `${ev.price} on ${ev.network || "Monad"} before it serves this post.`;
         shown = put(bot, approvalCardHtml());
       } else if (ev.type === "paid") {
         // The server only quotes here. Nothing has moved until Approve succeeds.

@@ -3,7 +3,7 @@ import { ServicePreview } from "../components/ServicePreview";
 import type { Service } from "../types";
 
 /** The bot demo that crawls the live blog. Same product, one umbrella. */
-export const LIVE_BOT_PREVIEW_URL = "https://agentgate-demopreview.netlify.app/";
+export const LIVE_BOT_PREVIEW_URL = "https://bot.agentgate.santboblabs.com/";
 
 export function ServiceBoard({
   services,
@@ -57,7 +57,7 @@ export function ServiceBoard({
                 </button>
                 {service.id === "blog" ? (
                   <a className="obs-btn-sm" href={LIVE_BOT_PREVIEW_URL} target="_blank" rel="noreferrer">
-                    Live bot crawling preview
+                    Crawl Sandbox
                     <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5h5v5M9.5 2.5 3 9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </a>
                 ) : (
