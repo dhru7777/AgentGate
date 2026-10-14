@@ -7,7 +7,7 @@ import { readMonadAccount } from "./modules/wallet/etherscan";
 import { hideService, loadServices, nextServiceId, parseOrigin, saveUserServices } from "./modules/services/catalog";
 import type { OwnerSession, Rule, RuleMode, Service, Summary, Tab } from "./types";
 import { buildPath, parseRoute, titleFor, type Route } from "./routes";
-import { Walkthrough, WalkthroughButton } from "./components/Walkthrough";
+import { Walkthrough, WalkthroughButton, resumeIndex } from "./components/Walkthrough";
 import { ServiceBoard } from "./screens/ServiceBoard";
 import { IdentityView } from "./views/IdentityView";
 import { InvoicesView } from "./views/InvoicesView";
@@ -73,10 +73,9 @@ export function App() {
   const [rulesByService, setRulesByService] = useState<Record<string, Rule[]>>(() => initialRules(loadServices()));
   const [owner, setOwner] = useState<OwnerSession | null>(null);
   // Guided tour for judges: null when closed, otherwise the step number.
-  // Coming back from the Crawl Sandbox tour lands on /identity?walk=8 and picks up at the Identity step.
+  // Coming back from the Crawl Sandbox tour lands on /identity?walk=identity and picks up at the Identity step.
   const [walk, setWalk] = useState<number | null>(() => {
-    const n = Number(new URLSearchParams(window.location.search).get("walk"));
-    return Number.isInteger(n) && n > 0 && n < 20 ? n : null;
+    return resumeIndex(new URLSearchParams(window.location.search).get("walk"));
   });
 
   useEffect(() => {

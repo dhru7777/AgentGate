@@ -303,6 +303,16 @@ button, input, select { font-family: inherit; }
   line-height: 1.4;
 }
 
+.obs-globe-tip.is-flipped { transform: translate(calc(-100% - 12px), -120%); }
+.obs-globe-tip.is-ambient { animation: globe-tip-life 2.6s ease both; }
+@keyframes globe-tip-life {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .obs-globe-tip.is-ambient { animation: none; } }
+
 .obs-globe-tip strong,
 .obs-globe-tip span { display: block; }
 

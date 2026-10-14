@@ -16,14 +16,21 @@ function placeVector(lat: number, lon: number, radius: number) {
   );
 }
 
-type Tip = { x: number; y: number; title: string; lines: string[] };
+type Tip = { x: number; y: number; title: string; lines: string[]; ambient?: boolean; id?: number; flip?: boolean };
+
+/** How long an ambient card stays up, and the pause before the next one. */
+const AMBIENT_SHOW_MS = 2600;
+const AMBIENT_GAP_MS = 1200;
 
 /** Hover card for one dot: the total for the place, then who made the recent requests from it. */
-function placeInfo(place: Place, visits: Visit[]): { title: string; lines: string[] } {
-  const where = place.city ? `${place.city}, ${place.country}` : place.country;
-  const title = `${where} · ${place.count.toLocaleString()} requests`;
+function placeInfo(place: Place, visits: Visit[], located: number): { title: string; lines: string[]; recent: boolean } {
+  const where = place.city && place.city !== place.country ? `${place.city}, ${place.country}` : place.country;
+  const title = `${where} · ${place.count.toLocaleString()} ${place.count === 1 ? "request" : "requests"}`;
   const here = visits.filter((visit) => visit.country === place.country && visit.city === place.city);
-  if (!here.length) return { title, lines: ["No recent agent requests from here"] };
+  if (!here.length) {
+    const share = located ? Math.max(1, Math.round((place.count / located) * 100)) : 0;
+    return { title, lines: [`${share}% of located requests`, "Older than the recent window"], recent: false };
+  }
   const agents = new Map<string, number>();
   let humans = 0;
   let paid = 0;
@@ -41,7 +48,7 @@ function placeInfo(place: Place, visits: Visit[]): { title: string; lines: strin
   if (agents.size > top.length) lines.push(`+${agents.size - top.length} more agents`);
   if (humans) lines.push(`Humans: ${humans}`);
   lines.push(`Paid ${paid} · 402 ${gated} · Blocked ${blocked} (of ${here.length} recent)`);
-  return { title, lines };
+  return { title, lines, recent: true };
 }
 
 export function RequestMap({ places, visits, total }: { places: Summary["places"]; visits: Visit[]; total: number }) {
@@ -170,6 +177,7 @@ export function RequestMap({ places, visits, total }: { places: Summary["places"
         }
       }
       const list = placesRef.current;
+      const located = list.reduce((sum, place) => sum + place.count, 0);
       const max = Math.max(...list.map((place) => place.count), 1);
       for (const place of list) {
         const scale = 0.012 + (Math.sqrt(place.count) / Math.sqrt(max)) * 0.02;
@@ -183,8 +191,9 @@ export function RequestMap({ places, visits, total }: { places: Summary["places"
           }),
         );
         dot.scale.setScalar(scale);
+        dot.userData.base = scale;
         dot.position.copy(placeVector(place.lat, place.lon, 1.015));
-        dot.userData.info = placeInfo(place, visitsRef.current);
+        dot.userData.info = placeInfo(place, visitsRef.current, located);
         markers.add(dot);
       }
     };
@@ -200,6 +209,76 @@ export function RequestMap({ places, visits, total }: { places: Summary["places"
     let lastX = 0;
     let lastY = 0;
     let hover = "";
+
+    // Ambient mode: while the globe turns by itself, one light at a time shows its card for a few seconds, then lets go.
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const camPos = camera.position;
+    const wp = new THREE.Vector3();
+    let spotDot: THREE.Mesh | null = null;
+    let spotUntil = 0;
+    let spotNext = performance.now() + 1500;
+    let spotMoved = 0;
+    let spotSeq = 0;
+    let spotTitle = "";
+
+    function facing(dot: THREE.Object3D) {
+      dot.getWorldPosition(wp);
+      return wp.clone().normalize().dot(camPos.clone().sub(wp)) > 0.4;
+    }
+
+    function screenOf(dot: THREE.Object3D) {
+      dot.getWorldPosition(wp);
+      const v = wp.clone().project(camera);
+      const w = stage.clientWidth || 1;
+      const h = stage.clientHeight || 1;
+      return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h, flip: (v.x * 0.5 + 0.5) * w > w - 300 };
+    }
+
+    function endSpot(clearCard: boolean) {
+      if (spotDot) spotDot.scale.setScalar((spotDot.userData.base as number) || spotDot.scale.x);
+      spotDot = null;
+      spotNext = performance.now() + AMBIENT_GAP_MS;
+      if (clearCard) setTip((current) => (current?.ambient ? null : current));
+    }
+
+    function ambientStep() {
+      const now = performance.now();
+      if (reduceMotion || !auto || dragging || hover) {
+        if (spotDot) endSpot(!hover);
+        return;
+      }
+      if (spotDot) {
+        if (now > spotUntil || spotDot.parent !== markers || !facing(spotDot)) {
+          endSpot(true);
+        } else if (now - spotMoved > 60) {
+          spotMoved = now;
+          const at = screenOf(spotDot);
+          setTip((current) => (current?.ambient ? { ...current, x: at.x, y: at.y, flip: at.flip } : current));
+        }
+        return;
+      }
+      if (now < spotNext) return;
+      const options = markers.children.filter(
+        (child): child is THREE.Mesh => child instanceof THREE.Mesh && !!child.userData.info && child.userData.info.title !== spotTitle && facing(child),
+      );
+      if (!options.length) {
+        spotNext = now + 400;
+        return;
+      }
+      // Lights with recent requests make the better story, so they get picked first.
+      const recent = options.filter((child) => child.userData.info.recent);
+      const pool = recent.length ? recent : options;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      const info = pick.userData.info as { title: string; lines: string[] };
+      const at = screenOf(pick);
+      spotDot = pick;
+      spotTitle = info.title;
+      spotUntil = now + AMBIENT_SHOW_MS;
+      spotMoved = now;
+      spotSeq += 1;
+      pick.scale.setScalar(((pick.userData.base as number) || pick.scale.x) * 1.8);
+      setTip({ x: at.x, y: at.y, flip: at.flip, ambient: true, id: spotSeq, ...info });
+    }
 
     function resize() {
       const width = stage.clientWidth || 1;
@@ -266,6 +345,7 @@ export function RequestMap({ places, visits, total }: { places: Summary["places"
 
     const tick = () => {
       if (auto && !dragging) earth.rotation.y += 0.0018;
+      ambientStep();
       renderer.render(scene, camera);
       frame = requestAnimationFrame(tick);
     };
@@ -302,12 +382,16 @@ export function RequestMap({ places, visits, total }: { places: Summary["places"
       <h2>Where requests come from</h2>
       <p className="obs-lead">
         {located
-          ? `${located.toLocaleString()} of ${total.toLocaleString()} requests in this range have a rough location. Drag the globe. Hover a light for the city.`
+          ? `${located.toLocaleString()} of ${total.toLocaleString()} requests in this range have a rough location. Drag the globe. Hover a light for the city, or watch the cards that pop up on their own.`
           : "No located requests in this range yet."}
       </p>
       <div className="obs-globe" ref={hostRef}>
         {tip && (
-          <div className="obs-globe-tip" style={{ left: tip.x, top: tip.y }}>
+          <div
+            className={`obs-globe-tip${tip.ambient ? " is-ambient" : ""}${tip.flip ? " is-flipped" : ""}`}
+            key={tip.ambient ? `ambient-${tip.id}` : "hover"}
+            style={{ left: tip.x, top: tip.y }}
+          >
             <strong>{tip.title}</strong>
             {tip.lines.map((line) => (
               <span key={line}>{line}</span>

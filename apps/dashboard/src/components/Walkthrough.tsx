@@ -15,6 +15,8 @@ type Step = {
   link?: { label: string; href: string };
 };
 
+export const IDENTITY_STEP = "Agent identity";
+
 const STEPS: Step[] = [
   {
     title: "Services",
@@ -52,6 +54,12 @@ const STEPS: Step[] = [
     title: "Events",
     body: "The raw trail behind the numbers: each request, when it came, and how the gate answered it.",
     route: { tab: "observability", view: "events", agentView: "all" },
+    target: [".obs-main"],
+  },
+  {
+    title: "Permissions",
+    body: "This is where the owner sets the rules: Free, Charge or Block for each kind of agent, with one-click presets. Charge is what turns a 402 into revenue.",
+    route: { tab: "observability", view: "permissions", agentView: "all" },
     target: [".obs-main"],
   },
   {
@@ -105,6 +113,13 @@ function readHidden(): boolean {
   } catch {
     return false;
   }
+}
+
+/** Step to resume at when the sandbox tour sends the judge back: ?walk=identity, or the old ?walk=8. */
+export function resumeIndex(param: string | null): number | null {
+  if (!param) return null;
+  if (param === "identity" || param === "8") return STEPS.findIndex((step) => step.title === IDENTITY_STEP);
+  return null;
 }
 
 export function WalkthroughButton({ onClick, running }: { onClick: () => void; running: boolean }) {
