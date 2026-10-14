@@ -74,7 +74,9 @@ async function init() {
     const paid = await (await fetch("/api/settlements")).json();
     for (const row of paid.settlements || []) if (row.path) state.settled.add(pathKey(row.path));
   } catch { /* settlements are optional until the first approval */ }
-  setMode("search");
+  const modeFromPath = () => (state.modes[location.pathname.slice(1)] ? location.pathname.slice(1) : "search");
+  setMode(modeFromPath(), "replace");
+  addEventListener("popstate", () => setMode(modeFromPath(), "replace"));
   setBrain("maplelabs");
   loadPolicy();
   loadPlaces();
@@ -274,8 +276,10 @@ function toggleMax(pane) {
 
 // Search is a conversation with a chosen brain. Train is a one-shot crawl run by the script,
 // ending in a bundle download, so it gets a form and a log instead of a chat.
-function setMode(id) {
+function setMode(id, nav = "push") {
   state.mode = id;
+  if (location.pathname !== "/" + id) history[nav === "replace" ? "replaceState" : "pushState"](null, "", "/" + id + location.search);
+  document.title = `${state.modes[id].label} · Crawl Sandbox`;
   document.querySelectorAll(".mode").forEach((b) => {
     b.classList.toggle("on", b.dataset.id === id);
     b.setAttribute("aria-selected", b.dataset.id === id);
